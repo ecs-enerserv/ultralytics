@@ -837,12 +837,15 @@ class Albumentations:
 
             # Transforms
             T = [
-                A.Blur(p=0.01),
-                A.MedianBlur(p=0.01),
+                A.ISONoise(p=0.01, intensity=(0.02, 0.1)),
                 A.ToGray(p=0.01),
-                A.CLAHE(p=0.01),
-                A.RandomBrightnessContrast(p=0.0),
-                A.RandomGamma(p=0.0),
+                A.CLAHE(p=0.01, clip_limit=3.0),
+                A.MotionBlur(p=0.01, blur_limit=3),
+                A.RandomToneCurve(p=0.01, scale=0.05),
+                A.Sharpen(p=0.01, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
+                A.Emboss(p=0.01, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
+                A.MultiplicativeNoise(p=0.01, multiplier=(0.95, 1.05)),
+                A.Rotate(p=0.01, limit=5),
                 A.ImageCompression(quality_lower=75, p=0.0),
             ]
             self.transform = A.Compose(T, bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]))
