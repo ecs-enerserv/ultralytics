@@ -1149,6 +1149,8 @@ def classify_augmentations(
         T.RandomErasing(p=erasing, inplace=True),
     ]
 
+    import albumentations as A
+
     # Transforms
     albumentations_transform = A.Compose([
         A.ISONoise(p=0.01, intensity=(0.02, 0.1)),
