@@ -1168,7 +1168,9 @@ def classify_augmentations(
         A.ImageCompression(quality_lower=75, p=0.0),
         ])
 
-    album_tfl = [T.Lambda(lambda image: albumentations_transform(image=image)['image'])]
+    rgb_check = lambda image: image.convert('RGB') if image.mode != 'RGB' else image
+
+    album_tfl = [T.Lambda(lambda image: albumentations_transform(image=np.asarray(rgb_check(image)))['image'])]
 
     return T.Compose(primary_tfl + secondary_tfl + album_tfl + final_tfl)
 
