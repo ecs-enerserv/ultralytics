@@ -837,18 +837,18 @@ class Albumentations:
 
             # Transforms
             T = [
-                A.ISONoise(p=0.01, intensity=(0.02, 0.1)),
-                A.ToGray(p=0.01),
-                A.CLAHE(p=0.01, clip_limit=3.0),
-                A.MotionBlur(p=0.01, blur_limit=3),
-                A.RandomToneCurve(p=0.01, scale=0.05),
-                A.Sharpen(p=0.01, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
-                A.Emboss(p=0.01, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
-                A.MultiplicativeNoise(p=0.01, multiplier=(0.95, 1.05)),
-                A.Rotate(p=0.01, limit=5),
+                A.ISONoise(p=0.02, intensity=(0.02, 0.1)),
+                A.ToGray(p=0.02),
+                A.CLAHE(p=0.02, clip_limit=3.0),
+                A.MotionBlur(p=0.02, blur_limit=3),
+                A.RandomToneCurve(p=0.02, scale=0.05),
+                A.Sharpen(p=0.02, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
+                A.Emboss(p=0.02, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
+                A.MultiplicativeNoise(p=0.02, multiplier=(0.95, 1.05)),
+                A.Rotate(p=0.02, limit=5),
                 A.ChromaticAberration(primary_distortion_limit=(0.01, 0.05), 
                                      secondary_distortion_limit=(0.01, 0.07),
-                                     mode='random', p=0.01),
+                                     mode='random', p=0.02),
                 A.ImageCompression(quality_lower=75, p=0.0),
             ]
             self.transform = A.Compose(T, bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]))
@@ -1140,8 +1140,8 @@ def classify_augmentations(
                 f'"augmix", "autoaugment" or None'
             )
 
-    if not disable_color_jitter:
-        secondary_tfl += [T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h)]
+    #if not disable_color_jitter:
+    secondary_tfl += [T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h)]
 
     final_tfl = [
         T.ToTensor(),
@@ -1153,18 +1153,18 @@ def classify_augmentations(
 
     # Transforms
     albumentations_transform = A.Compose([
-        A.ISONoise(p=0.01, intensity=(0.02, 0.1)),
-        A.ToGray(p=0.01),
-        A.CLAHE(p=0.01, clip_limit=3.0),
-        A.MotionBlur(p=0.01, blur_limit=3),
-        A.RandomToneCurve(p=0.01, scale=0.05),
-        A.Sharpen(p=0.01, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
-        A.Emboss(p=0.01, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
-        A.MultiplicativeNoise(p=0.01, multiplier=(0.95, 1.05)),
-        A.Rotate(p=0.01, limit=5),
+        A.ISONoise(p=0.25, intensity=(0.02, 0.1)),
+        A.ToGray(p=0.12),
+        A.CLAHE(p=0.2, clip_limit=0.5),
+        A.MotionBlur(p=0.2, blur_limit=3),
+        A.RandomToneCurve(p=0.25, scale=0.05),
+        A.Sharpen(p=0.1, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
+        A.Emboss(p=0.2, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
+        A.MultiplicativeNoise(p=0.2, multiplier=(0.95, 1.05)),
+        A.Rotate(p=0.2, limit=5),
         A.ChromaticAberration(primary_distortion_limit=(0.01, 0.05), 
                               secondary_distortion_limit=(0.01, 0.07),
-                              mode='random', p=0.01),
+                              mode='random', p=0.2),
         A.ImageCompression(quality_lower=75, p=0.0),
         ])
 
