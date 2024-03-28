@@ -833,7 +833,7 @@ class Albumentations:
         try:
             import albumentations as A
 
-            #check_version(A.__version__, "1.0.3", hard=True)  # version requirement
+            # check_version(A.__version__, "1.0.3", hard=True)  # version requirement
 
             # Transforms
             T = [
@@ -846,9 +846,12 @@ class Albumentations:
                 A.Emboss(p=0.02, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
                 A.MultiplicativeNoise(p=0.02, multiplier=(0.95, 1.05)),
                 A.Rotate(p=0.02, limit=5),
-                A.ChromaticAberration(primary_distortion_limit=(0.01, 0.05), 
-                                     secondary_distortion_limit=(0.01, 0.07),
-                                     mode='random', p=0.02),
+                A.ChromaticAberration(
+                    primary_distortion_limit=(0.01, 0.05),
+                    secondary_distortion_limit=(0.01, 0.07),
+                    mode="random",
+                    p=0.02,
+                ),
                 A.ImageCompression(quality_lower=75, p=0.0),
             ]
             self.transform = A.Compose(T, bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]))
@@ -892,6 +895,7 @@ class Format:
         mask_ratio (int): Downsample ratio for masks. Default is 4.
         mask_overlap (bool): Whether to overlap masks. Default is True.
         batch_idx (bool): Keep batch indexes. Default is True.
+        bgr (float): The probability to return BGR images. Default is 0.0.
     """
 
     def __init__(
@@ -904,6 +908,7 @@ class Format:
         mask_ratio=4,
         mask_overlap=True,
         batch_idx=True,
+        bgr=0.0,
     ):
         """Initializes the Format class with given parameters."""
         self.bbox_format = bbox_format
@@ -914,6 +919,7 @@ class Format:
         self.mask_ratio = mask_ratio
         self.mask_overlap = mask_overlap
         self.batch_idx = batch_idx  # keep the batch indexes
+        self.bgr = bgr
 
     def __call__(self, labels):
         """Return formatted image, classes, bounding boxes & keypoints to be used by 'collate_fn'."""
@@ -954,7 +960,8 @@ class Format:
         """Format the image for YOLO from Numpy array to PyTorch tensor."""
         if len(img.shape) < 3:
             img = np.expand_dims(img, -1)
-        img = np.ascontiguousarray(img.transpose(2, 0, 1)[::-1])
+        img = img.transpose(2, 0, 1)
+        img = np.ascontiguousarray(img[::-1] if random.uniform(0, 1) > self.bgr else img)
         img = torch.from_numpy(img)
         return img
 
@@ -1140,7 +1147,7 @@ def classify_augmentations(
                 f'"augmix", "autoaugment" or None'
             )
 
-    #if not disable_color_jitter:
+    # if not disable_color_jitter:
     secondary_tfl += [T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h)]
 
     final_tfl = [
@@ -1152,34 +1159,37 @@ def classify_augmentations(
     import albumentations as A
 
     # Transforms
-    albumentations_transform = A.Compose([
-        A.ISONoise(p=0.1, intensity=(0.02, 0.1)),
-        A.ToGray(p=0.02),
-        A.CLAHE(p=0.1, clip_limit=0.5),
-        A.MotionBlur(p=0.1, blur_limit=3),
-        A.GaussianBlur(p=1, blur_limit=(3, 5)),
-        A.RandomToneCurve(p=0.1, scale=0.05),
-        A.Sharpen(p=0.1, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
-        A.Emboss(p=0.1, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
-        A.MultiplicativeNoise(p=0.1, multiplier=(0.95, 1.05)),
-        A.Rotate(p=0.1, limit=10, border_mode=cv2.BORDER_CONSTANT),
-        A.ChromaticAberration(primary_distortion_limit=(0.01, 0.05), 
-                              secondary_distortion_limit=(0.01, 0.07),
-                              mode='random', p=0.1),
-        A.RGBShift(p=0.5, r_shift_limit=10, g_shift_limit=10, b_shift_limit=10),
-        A.RingingOvershoot(p=0.1, blur_limit=(5, 11)),
-        A.OpticalDistortion(p=0.1, distort_limit=0.1, shift_limit=0.1, border_mode=cv2.BORDER_CONSTANT),
-        A.GridDistortion(p=0.1, num_steps=5, distort_limit=0.3, border_mode=cv2.BORDER_CONSTANT),
-        A.Perspective(p=0.1, scale=(0.05, 0.1)),
-        A.PiecewiseAffine(p=0.1, scale=(0.01, 0.015)), 
-        A.ImageCompression(quality_lower=75, p=0.0),
-        ])
+    albumentations_transform = A.Compose(
+        [
+            A.ISONoise(p=0.1, intensity=(0.02, 0.1)),
+            A.ToGray(p=0.02),
+            A.CLAHE(p=0.1, clip_limit=0.5),
+            A.MotionBlur(p=0.1, blur_limit=3),
+            A.GaussianBlur(p=1, blur_limit=(3, 5)),
+            A.RandomToneCurve(p=0.1, scale=0.05),
+            A.Sharpen(p=0.1, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
+            A.Emboss(p=0.1, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
+            A.MultiplicativeNoise(p=0.1, multiplier=(0.95, 1.05)),
+            A.Rotate(p=0.1, limit=10, border_mode=cv2.BORDER_CONSTANT),
+            A.ChromaticAberration(
+                primary_distortion_limit=(0.01, 0.05), secondary_distortion_limit=(0.01, 0.07), mode="random", p=0.1
+            ),
+            A.RGBShift(p=0.5, r_shift_limit=10, g_shift_limit=10, b_shift_limit=10),
+            A.RingingOvershoot(p=0.1, blur_limit=(5, 11)),
+            A.OpticalDistortion(p=0.1, distort_limit=0.1, shift_limit=0.1, border_mode=cv2.BORDER_CONSTANT),
+            A.GridDistortion(p=0.1, num_steps=5, distort_limit=0.3, border_mode=cv2.BORDER_CONSTANT),
+            A.Perspective(p=0.1, scale=(0.05, 0.1)),
+            A.PiecewiseAffine(p=0.1, scale=(0.01, 0.015)),
+            A.ImageCompression(quality_lower=75, p=0.0),
+        ]
+    )
 
-    rgb_check = lambda image: image.convert('RGB') if image.mode != 'RGB' else image
+    rgb_check = lambda image: image.convert("RGB") if image.mode != "RGB" else image
 
-    album_tfl = [T.Lambda(lambda image: albumentations_transform(image=np.asarray(rgb_check(image)))['image'])]
+    album_tfl = [T.Lambda(lambda image: albumentations_transform(image=np.asarray(rgb_check(image)))["image"])]
 
     return T.Compose(primary_tfl + secondary_tfl + album_tfl + final_tfl)
+
 
 # NOTE: keep this class for backward compatibility
 class ClassifyLetterBox:
