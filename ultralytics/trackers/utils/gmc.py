@@ -19,7 +19,7 @@ class GMC:
         method (str): The method used for tracking. Options include 'orb', 'sift', 'ecc', 'sparseOptFlow', 'none'.
         downscale (int): Factor by which to downscale the frames for processing.
         prevFrame (np.ndarray): Stores the previous frame for tracking.
-        prevKeyPoints (List): Stores the keypoints from the previous frame.
+        prevKeyPoints (list): Stores the keypoints from the previous frame.
         prevDescriptors (np.ndarray): Stores the descriptors from the previous frame.
         initializedFirstFrame (bool): Flag to indicate if the first frame has been processed.
 
@@ -94,11 +94,11 @@ class GMC:
         Apply object detection on a raw frame using the specified method.
 
         Args:
-            raw_frame (np.ndarray): The raw frame to be processed, with shape (H, W, C).
-            detections (List | None): List of detections to be used in the processing.
+            raw_frame (np.ndarray): The raw frame to be processed.
+            detections (list): List of detections to be used in the processing.
 
         Returns:
-            (np.ndarray): Processed frame with applied object detection.
+            (np.ndarray): Processed frame.
 
         Examples:
             >>> gmc = GMC(method='sparseOptFlow')
@@ -121,10 +121,10 @@ class GMC:
         Apply the ECC (Enhanced Correlation Coefficient) algorithm to a raw frame for motion compensation.
 
         Args:
-            raw_frame (np.ndarray): The raw frame to be processed, with shape (H, W, C).
+            raw_frame (np.ndarray): The raw frame to be processed.
 
         Returns:
-            (np.ndarray): The processed frame with the applied ECC transformation.
+            (np.ndarray): Processed frame.
 
         Examples:
             >>> gmc = GMC(method='ecc')
@@ -166,8 +166,8 @@ class GMC:
         Apply feature-based methods like ORB or SIFT to a raw frame.
 
         Args:
-            raw_frame (np.ndarray): The raw frame to be processed, with shape (H, W, C).
-            detections (List | None): List of detections to be used in the processing.
+            raw_frame (np.ndarray): The raw frame to be processed.
+            detections (list): List of detections to be used in the processing.
 
         Returns:
             (np.ndarray): Processed frame.
@@ -309,10 +309,10 @@ class GMC:
         Apply Sparse Optical Flow method to a raw frame.
 
         Args:
-            raw_frame (np.ndarray): The raw frame to be processed, with shape (H, W, C).
+            raw_frame (np.ndarray): The raw frame to be processed.
 
         Returns:
-            (np.ndarray): Processed frame with shape (2, 3).
+            (np.ndarray): Processed frame.
 
         Examples:
             >>> gmc = GMC()

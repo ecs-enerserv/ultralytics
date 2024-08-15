@@ -15,8 +15,7 @@ from ultralytics.data.augment import Format
 from ultralytics.data.dataset import YOLODataset
 from ultralytics.data.utils import check_det_dataset
 from ultralytics.models.yolo.model import YOLO
-from ultralytics.utils import LOGGER, USER_CONFIG_DIR, IterableSimpleNamespace, checks
-
+from ultralytics.utils import LOGGER, IterableSimpleNamespace, checks, USER_CONFIG_DIR
 from .utils import get_sim_index_schema, get_table_schema, plot_query_result, prompt_sql_query, sanitize_batch
 
 
@@ -64,7 +63,6 @@ class Explorer:
         model: str = "yolov8n.pt",
         uri: str = USER_CONFIG_DIR / "explorer",
     ) -> None:
-        """Initializes the Explorer class with dataset path, model, and URI for database connection."""
         # Note duckdb==0.10.0 bug https://github.com/ultralytics/ultralytics/pull/8181
         checks.check_requirements(["lancedb>=0.4.3", "duckdb<=0.9.2"])
         import lancedb

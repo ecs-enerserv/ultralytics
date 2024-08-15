@@ -105,7 +105,12 @@ class SpeedEstimator:
 
     def calculate_speed(self, trk_id, track):
         """
-        Calculates the speed of an object.
+        Calculation of object speed.
+
+        Args:
+            trk_id (int): object track id.
+            track (list): tracking history for tracks path drawing
+        """
 
         Args:
             trk_id (int): Object track id.
@@ -134,24 +139,21 @@ class SpeedEstimator:
 
     def estimate_speed(self, im0, tracks, region_color=(255, 0, 0)):
         """
-        Estimates the speed of objects based on tracking data.
+        Calculate object based on tracking data.
 
         Args:
             im0 (ndarray): Image.
             tracks (list): List of tracks obtained from the object tracking process.
-            region_color (tuple, optional): Color to use when drawing regions. Defaults to (255, 0, 0).
-
-        Returns:
-            (ndarray): The image with annotated boxes and tracks.
+            region_color (tuple): Color to use when drawing regions.
         """
         self.im0 = im0
         if tracks[0].boxes.id is None:
             if self.view_img and self.env_check:
                 self.display_frames()
             return im0
-
         self.extract_tracks(tracks)
-        self.annotator = Annotator(self.im0, line_width=self.line_thickness)
+
+        self.annotator = Annotator(self.im0, line_width=2)
         self.annotator.draw_region(reg_pts=self.reg_pts, color=region_color, thickness=self.region_thickness)
 
         for box, trk_id, cls in zip(self.boxes, self.trk_ids, self.clss):

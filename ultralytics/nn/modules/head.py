@@ -9,8 +9,7 @@ import torch.nn as nn
 from torch.nn.init import constant_, xavier_uniform_
 
 from ultralytics.utils.tal import TORCH_1_10, dist2bbox, dist2rbox, make_anchors
-
-from .block import DFL, BNContrastiveHead, ContrastiveHead, Proto
+from .block import DFL, Proto, ContrastiveHead, BNContrastiveHead
 from .conv import Conv
 from .transformer import MLP, DeformableTransformerDecoder, DeformableTransformerDecoderLayer
 from .utils import bias_init_with_prob, linear_init
@@ -127,40 +126,7 @@ class Detect(nn.Module):
 
     def decode_bboxes(self, bboxes, anchors):
         """Decode bounding boxes."""
-        return dist2bbox(bboxes, anchors, xywh=not self.end2end, dim=1)
-
-    @staticmethod
-    def postprocess(preds: torch.Tensor, max_det: int, nc: int = 80):
-        """
-        Post-processes the predictions obtained from a YOLOv10 model.
-
-        Args:
-            preds (torch.Tensor): The predictions obtained from the model. It should have a shape of (batch_size, num_boxes, 4 + num_classes).
-            max_det (int): The maximum number of detections to keep.
-            nc (int, optional): The number of classes. Defaults to 80.
-
-        Returns:
-            (torch.Tensor): The post-processed predictions with shape (batch_size, max_det, 6),
-                including bounding boxes, scores and cls.
-        """
-        assert 4 + nc == preds.shape[-1]
-        boxes, scores = preds.split([4, nc], dim=-1)
-        max_scores = scores.amax(dim=-1)
-        max_scores, index = torch.topk(max_scores, min(max_det, max_scores.shape[1]), axis=-1)
-        index = index.unsqueeze(-1)
-        boxes = torch.gather(boxes, dim=1, index=index.repeat(1, 1, boxes.shape[-1]))
-        scores = torch.gather(scores, dim=1, index=index.repeat(1, 1, scores.shape[-1]))
-
-        # NOTE: simplify but result slightly lower mAP
-        # scores, labels = scores.max(dim=-1)
-        # return torch.cat([boxes, scores.unsqueeze(-1), labels.unsqueeze(-1)], dim=-1)
-
-        scores, index = torch.topk(scores.flatten(1), max_det, axis=-1)
-        labels = index % nc
-        index = index // nc
-        boxes = boxes.gather(dim=1, index=index.unsqueeze(-1).repeat(1, 1, boxes.shape[-1]))
-
-        return torch.cat([boxes, scores.unsqueeze(-1), labels.unsqueeze(-1).to(boxes.dtype)], dim=-1)
+        return dist2bbox(bboxes, anchors, xywh=True, dim=1)
 
 
 class Segment(Detect):
@@ -281,8 +247,6 @@ class Classify(nn.Module):
 
 
 class WorldDetect(Detect):
-    """Head for integrating YOLOv8 detection models with semantic understanding from text embeddings."""
-
     def __init__(self, nc=80, embed=512, with_bn=False, ch=()):
         """Initialize YOLOv8 detection layer with nc classes and layer channels ch."""
         super().__init__(nc, ch)
@@ -304,13 +268,13 @@ class WorldDetect(Detect):
             self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
             self.shape = shape
 
-        if self.export and self.format in {"saved_model", "pb", "tflite", "edgetpu", "tfjs"}:  # avoid TF FlexSplitV ops
+        if self.export and self.format in ("saved_model", "pb", "tflite", "edgetpu", "tfjs"):  # avoid TF FlexSplitV ops
             box = x_cat[:, : self.reg_max * 4]
             cls = x_cat[:, self.reg_max * 4 :]
         else:
             box, cls = x_cat.split((self.reg_max * 4, self.nc), 1)
 
-        if self.export and self.format in {"tflite", "edgetpu"}:
+        if self.export and self.format in ("tflite", "edgetpu"):
             # Precompute normalization factor to increase numerical stability
             # See https://github.com/ultralytics/ultralytics/issues/7371
             grid_h = shape[2]
@@ -323,15 +287,6 @@ class WorldDetect(Detect):
 
         y = torch.cat((dbox, cls.sigmoid()), 1)
         return y if self.export else (y, x)
-
-    def bias_init(self):
-        """Initialize Detect() biases, WARNING: requires stride availability."""
-        m = self  # self.model[-1]  # Detect() module
-        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1
-        # ncf = math.log(0.6 / (m.nc - 0.999999)) if cf is None else torch.log(cf / cf.sum())  # nominal class frequency
-        for a, b, s in zip(m.cv2, m.cv3, m.stride):  # from
-            a[-1].bias.data[:] = 1.0  # box
-            # b[-1].bias.data[:] = math.log(5 / m.nc / (640 / s) ** 2)  # cls (.01 objects, 80 classes, 640 img)
 
 
 class RTDETRDecoder(nn.Module):

@@ -38,7 +38,7 @@ DOCS = Path(__file__).parent.resolve()
 SITE = DOCS.parent / "site"
 
 
-def prepare_docs_markdown(clone_repos=True):
+def build_docs(clone_repos=True):
     """Build docs using mkdocs."""
     if SITE.exists():
         print(f"Removing existing {SITE}")
@@ -57,9 +57,10 @@ def prepare_docs_markdown(clone_repos=True):
         shutil.copytree(local_dir / "hub_sdk", DOCS.parent / "hub_sdk")  # for mkdocstrings
         print(f"Cloned/Updated {repo} in {local_dir}")
 
-    # Add frontmatter
-    for file in tqdm((DOCS / "en").rglob("*.md"), desc="Adding frontmatter"):
-        update_markdown_files(file)
+    # Build the main documentation
+    print(f"Building docs from {DOCS}")
+    subprocess.run(f"mkdocs build -f {DOCS.parent}/mkdocs.yml", check=True, shell=True)
+    print(f"Site built at {SITE}")
 
 
 def update_page_title(file_path: Path, new_title: str):
@@ -97,12 +98,28 @@ def update_html_head(script=""):
 
 def update_subdir_edit_links(subdir="", docs_url=""):
     """Update the HTML head section of each file."""
+    from bs4 import BeautifulSoup
+
     if str(subdir[0]) == "/":
         subdir = str(subdir[0])[1:]
     html_files = (SITE / subdir).rglob("*.html")
     for html_file in tqdm(html_files, desc="Processing subdir files"):
         with html_file.open("r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "html.parser")
+
+        # Find the anchor tag and update its href attribute
+        a_tag = soup.find("a", {"class": "md-content__button md-icon"})
+        if a_tag and a_tag["title"] == "Edit this page":
+            a_tag["href"] = f"{docs_url}{a_tag['href'].split(subdir)[-1]}"
+
+        # Write the updated HTML back to the file
+        with open(html_file, "w", encoding="utf-8") as file:
+            file.write(str(soup))
+
+
+def main():
+    """Builds docs, updates titles and edit links, and prints local server command."""
+    build_docs()
 
         # Find the anchor tag and update its href attribute
         a_tag = soup.find("a", {"class": "md-content__button md-icon"})
@@ -160,97 +177,13 @@ def update_docs_html():
     # Update edit links
     update_subdir_edit_links(
         subdir="hub/sdk/",  # do not use leading slash
-        docs_url="https://github.com/ultralytics/hub-sdk/tree/main/docs/",
+        docs_url="https://github.com/ultralytics/hub-sdk/tree/develop/docs/",
     )
-
-    # Convert plaintext links to HTML hyperlinks
-    files_modified = 0
-    for html_file in tqdm(SITE.rglob("*.html"), desc="Converting plaintext links"):
-        with open(html_file, "r", encoding="utf-8") as file:
-            content = file.read()
-        updated_content = convert_plaintext_links_to_html(content)
-        if updated_content != content:
-            with open(html_file, "w", encoding="utf-8") as file:
-                file.write(updated_content)
-            files_modified += 1
-    print(f"Modified plaintext links in {files_modified} files.")
 
     # Update HTML file head section
     script = ""
     if any(script):
         update_html_head(script)
-
-    # Delete the /macros directory from the built site
-    macros_dir = SITE / "macros"
-    if macros_dir.exists():
-        print(f"Removing /macros directory from site: {macros_dir}")
-        shutil.rmtree(macros_dir)
-
-
-def convert_plaintext_links_to_html(content):
-    """Convert plaintext links to HTML hyperlinks in the main content area only."""
-    soup = BeautifulSoup(content, "html.parser")
-
-    # Find the main content area (adjust this selector based on your HTML structure)
-    main_content = soup.find("main") or soup.find("div", class_="md-content")
-    if not main_content:
-        return content  # Return original content if main content area not found
-
-    modified = False
-    for paragraph in main_content.find_all(["p", "li"]):  # Focus on paragraphs and list items
-        for text_node in paragraph.find_all(string=True, recursive=False):
-            if text_node.parent.name not in {"a", "code"}:  # Ignore links and code blocks
-                new_text = re.sub(
-                    r'(https?://[^\s()<>]+(?:\.[^\s()<>]+)+)(?<![.,:;\'"])',
-                    r'<a href="\1">\1</a>',
-                    str(text_node),
-                )
-                if "<a" in new_text:
-                    new_soup = BeautifulSoup(new_text, "html.parser")
-                    text_node.replace_with(new_soup)
-                    modified = True
-
-    return str(soup) if modified else content
-
-
-def remove_macros():
-    # Delete the /macros directory and sitemap.xml.gz from the built site
-    shutil.rmtree(SITE / "macros", ignore_errors=True)
-    (SITE / "sitemap.xml.gz").unlink(missing_ok=True)
-
-    # Process sitemap.xml
-    sitemap = SITE / "sitemap.xml"
-    lines = sitemap.read_text(encoding="utf-8").splitlines(keepends=True)
-
-    # Find indices of '/macros/' lines
-    macros_indices = [i for i, line in enumerate(lines) if "/macros/" in line]
-
-    # Create a set of indices to remove (including lines before and after)
-    indices_to_remove = set()
-    for i in macros_indices:
-        indices_to_remove.update(range(i - 1, i + 4))  # i-1, i, i+1, i+2, i+3
-
-    # Create new list of lines, excluding the ones to remove
-    new_lines = [line for i, line in enumerate(lines) if i not in indices_to_remove]
-
-    # Write the cleaned content back to the file
-    sitemap.write_text("".join(new_lines), encoding="utf-8")
-
-    print(f"Removed {len(macros_indices)} URLs containing '/macros/' from {sitemap}")
-
-
-def main():
-    """Builds docs, updates titles and edit links, and prints local server command."""
-    prepare_docs_markdown()
-
-    # Build the main documentation
-    print(f"Building docs from {DOCS}")
-    subprocess.run(f"mkdocs build -f {DOCS.parent}/mkdocs.yml --strict", check=True, shell=True)
-    remove_macros()
-    print(f"Site built at {SITE}")
-
-    # Update docs HTML pages
-    update_docs_html()
 
     # Show command to serve built website
     print('Docs built correctly ✅\nServe site at http://localhost:8000 with "python -m http.server --directory site"')

@@ -17,17 +17,8 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ultralytics.utils import (
-    DEFAULT_CFG_DICT,
-    DEFAULT_CFG_KEYS,
-    LOGGER,
-    NUM_THREADS,
-    PYTHON_VERSION,
-    TORCHVISION_VERSION,
-    __version__,
-    colorstr,
-)
-from ultralytics.utils.checks import check_version
+from ultralytics.utils import DEFAULT_CFG_DICT, DEFAULT_CFG_KEYS, LOGGER, __version__
+from ultralytics.utils.checks import PYTHON_VERSION, check_version
 
 try:
     import thop

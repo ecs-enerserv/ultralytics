@@ -128,6 +128,14 @@ class Heatmap:
             tracks (list): List of tracks obtained from the object tracking process.
         """
         self.im0 = im0
+        if tracks[0].boxes.id is None:
+            self.heatmap = np.zeros((int(self.imh), int(self.imw)), dtype=np.float32)
+            if self.view_img and self.env_check:
+                self.display_frames()
+            return im0
+        self.heatmap *= self.decay_factor  # decay factor
+        self.extract_results(tracks)
+        self.annotator = Annotator(self.im0, self.count_txt_thickness, None)
 
         # Initialize heatmap only once
         if not self.initialized:

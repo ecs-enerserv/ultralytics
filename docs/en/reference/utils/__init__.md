@@ -35,6 +35,10 @@ keywords: Ultralytics, utils, TQDM, Python, ML, Machine Learning utilities, YOLO
 
 <br><br><hr><br>
 
+## ::: ultralytics.utils.Retry
+
+<br><br>
+
 ## ::: ultralytics.utils.SettingsManager
 
 <br><br><hr><br>

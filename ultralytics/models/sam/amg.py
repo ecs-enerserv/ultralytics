@@ -33,26 +33,12 @@ def calculate_stability_score(masks: torch.Tensor, mask_threshold: float, thresh
     """
     Computes the stability score for a batch of masks.
 
-    The stability score is the IoU between binary masks obtained by thresholding the predicted mask logits at
-    high and low values.
-
-    Args:
-        masks (torch.Tensor): Batch of predicted mask logits.
-        mask_threshold (float): Threshold value for creating binary masks.
-        threshold_offset (float): Offset applied to the threshold for creating high and low binary masks.
-
-    Returns:
-        (torch.Tensor): Stability scores for each mask in the batch.
+    The stability score is the IoU between the binary masks obtained by thresholding the predicted mask logits at high
+    and low values.
 
     Notes:
         - One mask is always contained inside the other.
-        - Memory is saved by preventing unnecessary cast to torch.int64.
-
-    Examples:
-        >>> masks = torch.rand(10, 256, 256)  # Batch of 10 masks
-        >>> mask_threshold = 0.5
-        >>> threshold_offset = 0.1
-        >>> stability_scores = calculate_stability_score(masks, mask_threshold, threshold_offset)
+        - Save memory by preventing unnecessary cast to torch.int64
     """
     intersections = (masks > (mask_threshold + threshold_offset)).sum(-1, dtype=torch.int16).sum(-1, dtype=torch.int32)
     unions = (masks > (mask_threshold - threshold_offset)).sum(-1, dtype=torch.int16).sum(-1, dtype=torch.int32)

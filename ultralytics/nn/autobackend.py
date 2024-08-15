@@ -321,8 +321,6 @@ class AutoBackend(nn.Module):
             with open(w, "rb") as f:
                 gd.ParseFromString(f.read())
             frozen_func = wrap_frozen_graph(gd, inputs="x:0", outputs=gd_outputs(gd))
-            with contextlib.suppress(StopIteration):  # find metadata in SavedModel alongside GraphDef
-                metadata = next(Path(w).resolve().parent.rglob(f"{Path(w).stem}_saved_model*/metadata.yaml"))
 
         # TFLite or TFLite Edge TPU
         elif tflite or edgetpu:  # https://www.tensorflow.org/lite/guide/python#install_tensorflow_lite_for_python
@@ -496,20 +494,13 @@ class AutoBackend(nn.Module):
 
         # TensorRT
         elif self.engine:
-            if self.dynamic or im.shape != self.bindings["images"].shape:
-                if self.is_trt10:
-                    self.context.set_input_shape("images", im.shape)
-                    self.bindings["images"] = self.bindings["images"]._replace(shape=im.shape)
-                    for name in self.output_names:
-                        self.bindings[name].data.resize_(tuple(self.context.get_tensor_shape(name)))
-                else:
-                    i = self.model.get_binding_index("images")
-                    self.context.set_binding_shape(i, im.shape)
-                    self.bindings["images"] = self.bindings["images"]._replace(shape=im.shape)
-                    for name in self.output_names:
-                        i = self.model.get_binding_index(name)
-                        self.bindings[name].data.resize_(tuple(self.context.get_binding_shape(i)))
-
+            if self.dynamic and im.shape != self.bindings["images"].shape:
+                i = self.model.get_binding_index("images")
+                self.context.set_binding_shape(i, im.shape)  # reshape if dynamic
+                self.bindings["images"] = self.bindings["images"]._replace(shape=im.shape)
+                for name in self.output_names:
+                    i = self.model.get_binding_index(name)
+                    self.bindings[name].data.resize_(tuple(self.context.get_binding_shape(i)))
             s = self.bindings["images"].shape
             assert im.shape == s, f"input size {im.shape} {'>' if self.dynamic else 'not equal to'} max model size {s}"
             self.binding_addrs["images"] = int(im.data_ptr())
@@ -549,8 +540,7 @@ class AutoBackend(nn.Module):
             mat_in = self.pyncnn.Mat(im[0].cpu().numpy())
             with self.net.create_extractor() as ex:
                 ex.input(self.net.input_names()[0], mat_in)
-                # WARNING: 'output_names' sorted as a temporary fix for https://github.com/pnnx/pnnx/issues/130
-                y = [np.array(ex.extract(x)[1])[None] for x in sorted(self.net.output_names())]
+                y = [np.array(ex.extract(x)[1])[None] for x in self.net.output_names()]
 
         # NVIDIA Triton Inference Server
         elif self.triton:

@@ -13,11 +13,11 @@ def test_similarity():
     exp = Explorer(data="coco8.yaml")
     exp.create_embeddings_table()
     similar = exp.get_similar(idx=1)
-    assert len(similar) == 4
-    similar = exp.get_similar(img=ASSETS / "bus.jpg")
-    assert len(similar) == 4
-    similar = exp.get_similar(idx=[1, 2], limit=2)
-    assert len(similar) == 2
+    assert len(similar) == 25
+    similar = exp.get_similar(img=ASSETS / "zidane.jpg")
+    assert len(similar) == 25
+    similar = exp.get_similar(idx=[1, 2], limit=10)
+    assert len(similar) == 10
     sim_idx = exp.similarity_index()
     assert len(sim_idx) == 4
     sql = exp.sql_query("WHERE labels LIKE '%zebra%'")
@@ -26,7 +26,7 @@ def test_similarity():
 
 @pytest.mark.slow
 def test_det():
-    """Test detection functionalities and verify embedding table includes bounding boxes."""
+    """Test detection functionalities and ensure the embedding table has bounding boxes."""
     exp = Explorer(data="coco8.yaml", model="yolov8n.pt")
     exp.create_embeddings_table(force=True)
     assert len(exp.table.head()["bboxes"]) > 0
@@ -39,7 +39,7 @@ def test_det():
 
 @pytest.mark.slow
 def test_seg():
-    """Test segmentation functionalities and ensure the embedding table includes segmentation masks."""
+    """Test segmentation functionalities and verify the embedding table includes masks."""
     exp = Explorer(data="coco8-seg.yaml", model="yolov8n-seg.pt")
     exp.create_embeddings_table(force=True)
     assert len(exp.table.head()["masks"]) > 0
@@ -51,7 +51,7 @@ def test_seg():
 
 @pytest.mark.slow
 def test_pose():
-    """Test pose estimation functionality and verify the embedding table includes keypoints."""
+    """Test pose estimation functionalities and check the embedding table for keypoints."""
     exp = Explorer(data="coco8-pose.yaml", model="yolov8n-pose.pt")
     exp.create_embeddings_table(force=True)
     assert len(exp.table.head()["keypoints"]) > 0

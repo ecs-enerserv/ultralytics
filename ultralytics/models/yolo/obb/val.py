@@ -55,11 +55,11 @@ class OBBValidator(DetectionValidator):
         Perform computation of the correct prediction matrix for a batch of detections and ground truth bounding boxes.
 
         Args:
-            detections (torch.Tensor): A tensor of shape (N, 7) representing the detected bounding boxes and associated
-                data. Each detection is represented as (x1, y1, x2, y2, conf, class, angle).
-            gt_bboxes (torch.Tensor): A tensor of shape (M, 5) representing the ground truth bounding boxes. Each box is
-                represented as (x1, y1, x2, y2, angle).
-            gt_cls (torch.Tensor): A tensor of shape (M,) representing class labels for the ground truth bounding boxes.
+            detections (torch.Tensor): Tensor of shape [N, 7] representing detections.
+                Each detection is of the format: x1, y1, x2, y2, conf, class, angle.
+            gt_bboxes (torch.Tensor): Tensor of shape [M, 5] representing rotated boxes.
+                Each box is of the format: x1, y1, x2, y2, angle.
+            labels (torch.Tensor): Tensor of shape [M] representing labels.
 
         Returns:
             (torch.Tensor): The correct prediction matrix with shape (N, 10), which includes 10 IoU (Intersection over

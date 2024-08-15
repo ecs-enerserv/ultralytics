@@ -69,9 +69,8 @@ Ultralytics YOLO models return either a Python list of `Results` objects, or a m
             masks = result.masks  # Masks object for segmentation masks outputs
             keypoints = result.keypoints  # Keypoints object for pose outputs
             probs = result.probs  # Probs object for classification outputs
-            obb = result.obb  # Oriented boxes object for OBB outputs
             result.show()  # display to screen
-            result.save(filename="result.jpg")  # save to disk
+            result.save(filename='result.jpg')  # save to disk
         ```
 
     === "Return a generator with `stream=True`"
@@ -91,9 +90,8 @@ Ultralytics YOLO models return either a Python list of `Results` objects, or a m
             masks = result.masks  # Masks object for segmentation masks outputs
             keypoints = result.keypoints  # Keypoints object for pose outputs
             probs = result.probs  # Probs object for classification outputs
-            obb = result.obb  # Oriented boxes object for OBB outputs
             result.show()  # display to screen
-            result.save(filename="result.jpg")  # save to disk
+            result.save(filename='result.jpg')  # save to disk
         ```
 
 ## Inference Sources
@@ -366,10 +364,10 @@ Below are code examples for using each source type:
 Inference arguments:
 
 | Argument        | Type           | Default                | Description                                                                                                                                                                                                                          |
-| --------------- | -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|-----------------|----------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `source`        | `str`          | `'ultralytics/assets'` | Specifies the data source for inference. Can be an image path, video file, directory, URL, or device ID for live feeds. Supports a wide range of formats and sources, enabling flexible application across different types of input. |
 | `conf`          | `float`        | `0.25`                 | Sets the minimum confidence threshold for detections. Objects detected with confidence below this threshold will be disregarded. Adjusting this value can help reduce false positives.                                               |
-| `iou`           | `float`        | `0.7`                  | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.                                                 |
+| `iou`           | `float`        | `0.7`                  | Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS). Lower values result in fewer detections by eliminating overlapping boxes, useful for reducing duplicates.                                                |
 | `imgsz`         | `int or tuple` | `640`                  | Defines the image size for inference. Can be a single integer `640` for square resizing or a (height, width) tuple. Proper sizing can improve detection accuracy and processing speed.                                               |
 | `half`          | `bool`         | `False`                | Enables half-precision (FP16) inference, which can speed up model inference on supported GPUs with minimal impact on accuracy.                                                                                                       |
 | `device`        | `str`          | `None`                 | Specifies the device for inference (e.g., `cpu`, `cuda:0` or `0`). Allows users to select between CPU, a specific GPU, or other compute devices for model execution.                                                                 |
@@ -386,7 +384,7 @@ Inference arguments:
 Visualization arguments:
 
 | Argument      | Type          | Default | Description                                                                                                                                                                   |
-| ------------- | ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|---------------|---------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `show`        | `bool`        | `False` | If `True`, displays the annotated images or videos in a window. Useful for immediate visual feedback during development or testing.                                           |
 | `save`        | `bool`        | `False` | Enables saving of the annotated images or videos to file. Useful for documentation, further analysis, or sharing results.                                                     |
 | `save_frames` | `bool`        | `False` | When processing videos, saves individual frames as images. Useful for extracting specific frames or for detailed frame-by-frame analysis.                                     |
@@ -473,7 +471,7 @@ All Ultralytics `predict()` calls will return a list of `Results` objects:
 `Results` objects have the following methods:
 
 | Method        | Return Type     | Description                                                                         |
-| ------------- | --------------- | ----------------------------------------------------------------------------------- |
+|---------------|-----------------|-------------------------------------------------------------------------------------|
 | `update()`    | `None`          | Update the boxes, masks, and probs attributes of the Results object.                |
 | `cpu()`       | `Results`       | Return a copy of the Results object with all tensors on CPU memory.                 |
 | `numpy()`     | `Results`       | Return a copy of the Results object with all tensors as numpy arrays.               |
@@ -683,19 +681,19 @@ The `plot()` method in `Results` objects facilitates visualization of prediction
     model = YOLO("yolov8n.pt")
 
     # Run inference on 'bus.jpg'
-    results = model(["bus.jpg", "zidane.jpg"])  # results list
+    results = model(['bus.jpg', 'zidane.jpg'])  # results list
 
     # Visualize the results
     for i, r in enumerate(results):
         # Plot results image
         im_bgr = r.plot()  # BGR-order numpy array
         im_rgb = Image.fromarray(im_bgr[..., ::-1])  # RGB-order PIL image
-
+        
         # Show results to screen (in supported environments)
         r.show()
 
         # Save results to disk
-        r.save(filename=f"results{i}.jpg")
+        r.save(filename=f'results{i}.jpg')
     ```
 
 ### `plot()` Method Parameters
@@ -703,7 +701,7 @@ The `plot()` method in `Results` objects facilitates visualization of prediction
 The `plot()` method supports various arguments to customize the output:
 
 | Argument     | Type            | Description                                                                | Default       |
-| ------------ | --------------- | -------------------------------------------------------------------------- | ------------- |
+|--------------|-----------------|----------------------------------------------------------------------------|---------------|
 | `conf`       | `bool`          | Include detection confidence scores.                                       | `True`        |
 | `line_width` | `float`         | Line width of bounding boxes. Scales with image size if `None`.            | `None`        |
 | `font_size`  | `float`         | Text font size. Scales with image size if `None`.                          | `None`        |
@@ -720,7 +718,6 @@ The `plot()` method supports various arguments to customize the output:
 | `show`       | `bool`          | Display the annotated image directly using the default image viewer.       | `False`       |
 | `save`       | `bool`          | Save the annotated image to a file specified by `filename`.                | `False`       |
 | `filename`   | `str`           | Path and name of the file to save the annotated image if `save` is `True`. | `None`        |
-| `color_mode` | `str`           | Specify the color mode, e.g., 'instance' or 'class'.                       | `'class'`     |
 
 ## Thread-Safe Inference
 

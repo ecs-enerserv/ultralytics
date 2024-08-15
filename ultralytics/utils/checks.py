@@ -45,6 +45,8 @@ from ultralytics.utils import (
     url2file,
 )
 
+PYTHON_VERSION = platform.python_version()
+
 
 def parse_requirements(file_path=ROOT.parent / "requirements.txt", package=""):
     """
@@ -315,7 +317,7 @@ def check_font(font="Arial.ttf"):
         return matches[0]
 
     # Download to USER_CONFIG_DIR if missing
-    url = f"https://github.com/ultralytics/assets/releases/download/v0.0.0/{name}"
+    url = f"https://ultralytics.com/assets/{name}"
     if downloads.is_url(url, check=True):
         downloads.safe_download(url=url, file=file)
         return file
@@ -332,7 +334,7 @@ def check_python(minimum: str = "3.8.0", hard: bool = True) -> bool:
     Returns:
         (bool): Whether the installed Python version meets the minimum constraints.
     """
-    return check_version(PYTHON_VERSION, minimum, name="Python", hard=hard)
+    return check_version(PYTHON_VERSION, minimum, name="Python ", hard=True)
 
 
 @TryExcept()
@@ -509,7 +511,7 @@ def check_file(file, suffix="", download=True, download_dir=".", hard=True):
             raise FileNotFoundError(f"'{file}' does not exist")
         elif len(files) > 1 and hard:
             raise FileNotFoundError(f"Multiple files match '{file}', specify exact path: {files}")
-        return files[0] if len(files) else []  # return file
+        return files[0] if len(files) else [] if hard else file  # return file
 
 
 def check_yaml(file, suffix=(".yaml", ".yml"), hard=True):
@@ -594,7 +596,7 @@ def collect_system_info():
         f"\n{'OS':<20}{platform.platform()}\n"
         f"{'Environment':<20}{ENVIRONMENT}\n"
         f"{'Python':<20}{PYTHON_VERSION}\n"
-        f"{'Install':<20}{'git' if IS_GIT_DIR else 'pip' if IS_PIP_PACKAGE else 'other'}\n"
+        f"{'Install':<20}{'git' if is_git_dir() else 'pip' if is_pip_package() else 'other'}\n"
         f"{'RAM':<20}{ram_info:.2f} GB\n"
         f"{'CPU':<20}{get_cpu_info()}\n"
         f"{'CUDA':<20}{torch.version.cuda if torch and torch.cuda.is_available() else None}\n"
@@ -740,5 +742,4 @@ def cuda_is_available() -> bool:
 
 
 # Define constants
-IS_PYTHON_MINIMUM_3_10 = check_python("3.10", hard=False)
 IS_PYTHON_3_12 = PYTHON_VERSION.startswith("3.12")

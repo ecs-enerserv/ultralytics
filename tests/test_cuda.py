@@ -8,45 +8,20 @@ import torch
 
 from tests import CUDA_DEVICE_COUNT, CUDA_IS_AVAILABLE, MODEL, SOURCE
 from ultralytics import YOLO
-from ultralytics.cfg import TASK2DATA, TASK2MODEL, TASKS
-from ultralytics.utils import ASSETS, WEIGHTS_DIR
+from ultralytics.utils import ASSETS, WEIGHTS_DIR, checks
+
+CUDA_IS_AVAILABLE = checks.cuda_is_available()
+CUDA_DEVICE_COUNT = checks.cuda_device_count()
+
+MODEL = WEIGHTS_DIR / "path with spaces" / "yolov8n.pt"  # test spaces in path
+DATA = "coco8.yaml"
+BUS = ASSETS / "bus.jpg"
 
 
 def test_checks():
     """Validate CUDA settings against torch CUDA functions."""
     assert torch.cuda.is_available() == CUDA_IS_AVAILABLE
     assert torch.cuda.device_count() == CUDA_DEVICE_COUNT
-
-
-@pytest.mark.slow
-@pytest.mark.skipif(True, reason="CUDA export tests disabled pending additional Ultralytics GPU server availability")
-@pytest.mark.skipif(not CUDA_IS_AVAILABLE, reason="CUDA is not available")
-@pytest.mark.parametrize(
-    "task, dynamic, int8, half, batch",
-    [  # generate all combinations but exclude those where both int8 and half are True
-        (task, dynamic, int8, half, batch)
-        # Note: tests reduced below pending compute availability expansion as GPU CI runner utilization is high
-        # for task, dynamic, int8, half, batch in product(TASKS, [True, False], [True, False], [True, False], [1, 2])
-        for task, dynamic, int8, half, batch in product(TASKS, [True], [True], [False], [2])
-        if not (int8 and half)  # exclude cases where both int8 and half are True
-    ],
-)
-def test_export_engine_matrix(task, dynamic, int8, half, batch):
-    """Test YOLO model export to TensorRT format for various configurations and run inference."""
-    file = YOLO(TASK2MODEL[task]).export(
-        format="engine",
-        imgsz=32,
-        dynamic=dynamic,
-        int8=int8,
-        half=half,
-        batch=batch,
-        data=TASK2DATA[task],
-        workspace=1,  # reduce workspace GB for less resource utilization during testing
-        simplify=True,  # use 'onnxslim'
-    )
-    YOLO(file)([SOURCE] * batch, imgsz=64 if dynamic else 32)  # exported model inference
-    Path(file).unlink()  # cleanup
-    Path(file).with_suffix(".cache").unlink() if int8 else None  # cleanup INT8 cache
 
 
 @pytest.mark.skipif(not CUDA_IS_AVAILABLE, reason="CUDA is not available")
@@ -59,26 +34,26 @@ def test_train():
 @pytest.mark.slow
 @pytest.mark.skipif(not CUDA_IS_AVAILABLE, reason="CUDA is not available")
 def test_predict_multiple_devices():
-    """Validate model prediction consistency across CPU and CUDA devices."""
+    """Validate model prediction on multiple devices."""
     model = YOLO("yolov8n.pt")
     model = model.cpu()
     assert str(model.device) == "cpu"
-    _ = model(SOURCE)  # CPU inference
+    _ = model(BUS)  # CPU inference
     assert str(model.device) == "cpu"
 
     model = model.to("cuda:0")
     assert str(model.device) == "cuda:0"
-    _ = model(SOURCE)  # CUDA inference
+    _ = model(BUS)  # CUDA inference
     assert str(model.device) == "cuda:0"
 
     model = model.cpu()
     assert str(model.device) == "cpu"
-    _ = model(SOURCE)  # CPU inference
+    _ = model(BUS)  # CPU inference
     assert str(model.device) == "cpu"
 
     model = model.cuda()
     assert str(model.device) == "cuda:0"
-    _ = model(SOURCE)  # CUDA inference
+    _ = model(BUS)  # CUDA inference
     assert str(model.device) == "cuda:0"
 
 

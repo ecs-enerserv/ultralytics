@@ -325,7 +325,7 @@ class LoadImagesAndVideos:
         paths, imgs, info = [], [], []
         while len(imgs) < self.bs:
             if self.count >= self.nf:  # end of file list
-                if imgs:
+                if len(imgs) > 0:
                     return paths, imgs, info  # return last partial batch
                 else:
                     raise StopIteration
@@ -362,11 +362,10 @@ class LoadImagesAndVideos:
                 self.mode = "image"
                 im0 = cv2.imread(path)  # BGR
                 if im0 is None:
-                    LOGGER.warning(f"WARNING ⚠️ Image Read Error {path}")
-                else:
-                    paths.append(path)
-                    imgs.append(im0)
-                    info.append(f"image {self.count + 1}/{self.nf} {path}: ")
+                    raise FileNotFoundError(f"Image Not Found {path}")
+                paths.append(path)
+                imgs.append(im0)
+                info.append(f"image {self.count + 1}/{self.nf} {path}: ")
                 self.count += 1  # move to the next file
                 if self.count >= self.ni:  # end of image list
                     break
@@ -523,7 +522,7 @@ def autocast_list(source):
     return files
 
 
-def get_best_youtube_url(url, method="pytube"):
+def get_best_youtube_url(url, use_pafy=True):
     """
     Retrieves the URL of the best quality MP4 video stream from a given YouTube video.
 

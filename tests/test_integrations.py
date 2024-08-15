@@ -13,10 +13,15 @@ from ultralytics import YOLO, download
 from ultralytics.utils import DATASETS_DIR, SETTINGS
 from ultralytics.utils.checks import check_requirements
 
+MODEL = WEIGHTS_DIR / "path with spaces" / "yolov8n.pt"  # test spaces in path
+CFG = "yolov8n.yaml"
+SOURCE = ASSETS / "bus.jpg"
+TMP = (ROOT / "../tests/tmp").resolve()  # temp directory for test files
+
 
 @pytest.mark.skipif(not check_requirements("ray", install=False), reason="ray[tune] not installed")
 def test_model_ray_tune():
-    """Tune YOLO model using Ray for hyperparameter optimization."""
+    """Tune YOLO model with Ray optimization library."""
     YOLO("yolov8n-cls.yaml").tune(
         use_ray=True, data="imagenet10", grace_period=1, iterations=1, imgsz=32, epochs=1, plots=False, device="cpu"
     )
@@ -24,7 +29,7 @@ def test_model_ray_tune():
 
 @pytest.mark.skipif(not check_requirements("mlflow", install=False), reason="mlflow not installed")
 def test_mlflow():
-    """Test training with MLflow tracking enabled (see https://mlflow.org/ for details)."""
+    """Test training with MLflow tracking enabled."""
     SETTINGS["mlflow"] = True
     YOLO("yolov8n-cls.yaml").train(data="imagenet10", imgsz=32, epochs=3, plots=False, device="cpu")
 
@@ -32,9 +37,10 @@ def test_mlflow():
 @pytest.mark.skipif(True, reason="Test failing in scheduled CI https://github.com/ultralytics/ultralytics/pull/8868")
 @pytest.mark.skipif(not check_requirements("mlflow", install=False), reason="mlflow not installed")
 def test_mlflow_keep_run_active():
-    """Ensure MLflow run status matches MLFLOW_KEEP_RUN_ACTIVE environment variable settings."""
+    import os
     import mlflow
 
+    """Test training with MLflow tracking enabled."""
     SETTINGS["mlflow"] = True
     run_name = "Test Run"
     os.environ["MLFLOW_RUN"] = run_name
@@ -62,8 +68,10 @@ def test_mlflow_keep_run_active():
 
 @pytest.mark.skipif(not check_requirements("tritonclient", install=False), reason="tritonclient[all] not installed")
 def test_triton():
-    """
-    Test NVIDIA Triton Server functionalities with YOLO model.
+    """Test NVIDIA Triton Server functionalities."""
+    check_requirements("tritonclient[all]")
+    import subprocess
+    import time
 
     See https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver.
     """
@@ -124,7 +132,7 @@ def test_pycocotools():
     from ultralytics.models.yolo.segment import SegmentationValidator
 
     # Download annotations after each dataset downloads first
-    url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/"
+    url = "https://github.com/ultralytics/assets/releases/download/v8.1.0/"
 
     args = {"model": "yolov8n.pt", "data": "coco8.yaml", "save_json": True, "imgsz": 64}
     validator = DetectionValidator(args=args)

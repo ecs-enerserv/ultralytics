@@ -8,7 +8,18 @@ keywords: Ultralytics, HUB, Inference API, Python, cURL, REST API, YOLO, image p
 
 After you [train a model](./models.md#train-model), you can use the [Shared Inference API](#shared-inference-api) for free. If you are a [Pro](./pro.md) user, you can access the [Dedicated Inference API](#dedicated-inference-api). The [Ultralytics HUB](https://ultralytics.com/hub) Inference API allows you to run inference through our REST API without the need to install and set up the Ultralytics YOLO environment locally.
 
-![Ultralytics HUB screenshot of the Deploy tab inside the Model page with an arrow pointing to the Dedicated Inference API card and one to the Shared Inference API card](https://raw.githubusercontent.com/ultralytics/assets/main/docs/hub/inference-api/hub_inference_api_1.jpg)
+![Inference API Screenshot](https://github.com/ultralytics/ultralytics/assets/19519529/a8c00e55-1590-403b-bdee-ed456c60af4d) Screenshot of the Inference API section in the trained model Preview tab.
+
+<p align="center">
+  <br>
+  <iframe loading="lazy" width="720" height="405" src="https://www.youtube.com/embed/OpWpBI35A5Y"
+    title="YouTube video player" frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+  <br>
+  <strong>Watch:</strong> Ultralytics HUB Inference API Walkthrough
+</p>
 
 <p align="center">
   <iframe loading="lazy" width="720" height="405" src="https://www.youtube.com/embed/OpWpBI35A5Y"

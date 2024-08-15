@@ -25,6 +25,17 @@ keywords: Ultralytics YOLOv8, speed estimation, object tracking, computer vision
 
     For deeper insights into speed estimation, check out our blog post: [Ultralytics YOLOv8 for Speed Estimation in Computer Vision Projects](https://www.ultralytics.com/blog/ultralytics-yolov8-for-speed-estimation-in-computer-vision-projects)
 
+<p align="center">
+  <br>
+  <iframe loading="lazy" width="720" height="405" src="https://www.youtube.com/embed/rCggzXRRSRo"
+    title="YouTube video player" frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+  <br>
+  <strong>Watch:</strong> Speed Estimation using Ultralytics YOLOv8
+</p>
+
 ## Advantages of Speed Estimation?
 
 - **Efficient Traffic Control:** Accurate speed estimation aids in managing traffic flow, enhancing safety, and reducing congestion on roadways.

@@ -199,7 +199,6 @@ def non_max_suppression(
         max_nms (int): The maximum number of boxes into torchvision.ops.nms().
         max_wh (int): The maximum box width and height in pixels.
         in_place (bool): If True, the input prediction tensor will be modified in place.
-        rotated (bool): If Oriented Bounding Boxes (OBB) are being passed for NMS.
 
     Returns:
         (List[torch.Tensor]): A list of length batch_size, where each element is a tensor of
@@ -554,7 +553,7 @@ def xywhr2xyxyxyxy(x):
     be in radians from 0 to pi/2.
 
     Args:
-        x (numpy.ndarray | torch.Tensor): Boxes in [cx, cy, w, h, rotation] format of shape (n, 5) or (b, n, 5).
+        rboxes (numpy.ndarray | torch.Tensor): Boxes in [cx, cy, w, h, rotation] format of shape (n, 5) or (b, n, 5).
 
     Returns:
         (numpy.ndarray | torch.Tensor): Converted corner points of shape (n, 4, 2) or (b, n, 4, 2).
@@ -670,7 +669,7 @@ def process_mask(protos, masks_in, bboxes, shape, upsample=False):
 
     c, mh, mw = protos.shape  # CHW
     ih, iw = shape
-    masks = (masks_in @ protos.float().view(c, -1)).view(-1, mh, mw)  # CHW
+    masks = (masks_in @ protos.float().view(c, -1)).sigmoid().view(-1, mh, mw)  # CHW
     width_ratio = mw / iw
     height_ratio = mh / ih
 

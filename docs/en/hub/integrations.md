@@ -10,7 +10,16 @@ Learn about [Ultralytics HUB](https://ultralytics.com/hub) integrations with var
 
 ## Datasets
 
-Seamlessly import your datasets in [Ultralytics HUB](https://ultralytics.com/hub) for [model training](./models.md#train-model).
+<p align="center">
+  <br>
+  <iframe loading="lazy" width="720" height="405" src="https://www.youtube.com/embed/lveF9iCMIzc?si=_Q4WB5kMB5qNe7q6"
+    title="YouTube video player" frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+  <br>
+  <strong>Watch:</strong> Train Your Custom YOLO Models In A Few Clicks with Ultralytics HUB.
+</p>
 
 After a dataset is imported in [Ultralytics HUB](https://ultralytics.com/hub), you can [train a model](./models.md#train-model) on your dataset just like you would using the [Ultralytics HUB](https://ultralytics.com/hub) datasets.
 

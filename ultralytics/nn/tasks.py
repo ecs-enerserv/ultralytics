@@ -25,7 +25,7 @@ from ultralytics.nn.modules import (
     BottleneckCSP,
     C2f,
     C2fAttn,
-    C2fCIB,
+    ImagePoolingAttn,
     C3Ghost,
     C3x,
     CBFuse,
@@ -54,7 +54,12 @@ from ultralytics.nn.modules import (
     SCDown,
     Segment,
     WorldDetect,
-    v10Detect,
+    RepNCSPELAN4,
+    ADown,
+    SPPELAN,
+    CBFuse,
+    CBLinear,
+    Silence,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, DEFAULT_CFG_KEYS, LOGGER, colorstr, emojis, yaml_load
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -599,28 +604,28 @@ class WorldModel(DetectionModel):
         self.clip_model = None  # CLIP model placeholder
         super().__init__(cfg=cfg, ch=ch, nc=nc, verbose=verbose)
 
-    def set_classes(self, text, batch=80, cache_clip_model=True):
-        """Set classes in advance so that model could do offline-inference without clip model."""
+    def set_classes(self, text):
+        """Perform a forward pass with optional profiling, visualization, and embedding extraction."""
         try:
             import clip
         except ImportError:
-            check_requirements("git+https://github.com/ultralytics/CLIP.git")
+            check_requirements("git+https://github.com/openai/CLIP.git")
             import clip
 
-        if (
-            not getattr(self, "clip_model", None) and cache_clip_model
-        ):  # for backwards compatibility of models lacking clip_model attribute
+        if not getattr(self, "clip_model", None):  # for backwards compatibility of models lacking clip_model attribute
             self.clip_model = clip.load("ViT-B/32")[0]
-        model = self.clip_model if cache_clip_model else clip.load("ViT-B/32")[0]
-        device = next(model.parameters()).device
+        device = next(self.clip_model.parameters()).device
         text_token = clip.tokenize(text).to(device)
-        txt_feats = [model.encode_text(token).detach() for token in text_token.split(batch)]
-        txt_feats = txt_feats[0] if len(txt_feats) == 1 else torch.cat(txt_feats, dim=0)
+        txt_feats = self.clip_model.encode_text(text_token).to(dtype=torch.float32)
         txt_feats = txt_feats / txt_feats.norm(p=2, dim=-1, keepdim=True)
-        self.txt_feats = txt_feats.reshape(-1, len(text), txt_feats.shape[-1])
+        self.txt_feats = txt_feats.reshape(-1, len(text), txt_feats.shape[-1]).detach()
         self.model[-1].nc = len(text)
 
-    def predict(self, x, profile=False, visualize=False, txt_feats=None, augment=False, embed=None):
+    def init_criterion(self):
+        """Initialize the loss criterion for the model."""
+        raise NotImplementedError
+
+    def predict(self, x, profile=False, visualize=False, augment=False, embed=None):
         """
         Perform a forward pass through the model.
 
@@ -628,14 +633,13 @@ class WorldModel(DetectionModel):
             x (torch.Tensor): The input tensor.
             profile (bool, optional): If True, profile the computation time for each layer. Defaults to False.
             visualize (bool, optional): If True, save feature maps for visualization. Defaults to False.
-            txt_feats (torch.Tensor): The text features, use it if it's given. Defaults to None.
             augment (bool, optional): If True, perform data augmentation during inference. Defaults to False.
             embed (list, optional): A list of feature vectors/embeddings to return.
 
         Returns:
             (torch.Tensor): Model's output tensor.
         """
-        txt_feats = (self.txt_feats if txt_feats is None else txt_feats).to(device=x.device, dtype=x.dtype)
+        txt_feats = self.txt_feats.to(device=x.device, dtype=x.dtype)
         if len(txt_feats) != len(x):
             txt_feats = txt_feats.repeat(len(x), 1, 1)
         ori_txt_feats = txt_feats.clone()
@@ -662,21 +666,6 @@ class WorldModel(DetectionModel):
                 if m.i == max(embed):
                     return torch.unbind(torch.cat(embeddings, 1), dim=0)
         return x
-
-    def loss(self, batch, preds=None):
-        """
-        Compute loss.
-
-        Args:
-            batch (dict): Batch to compute loss on.
-            preds (torch.Tensor | List[torch.Tensor]): Predictions.
-        """
-        if not hasattr(self, "criterion"):
-            self.criterion = self.init_criterion()
-
-        if preds is None:
-            preds = self.forward(batch["img"], txt_feats=batch["txt_feats"])
-        return self.criterion(preds, batch)
 
 
 class Ensemble(nn.ModuleList):
@@ -772,12 +761,8 @@ def torch_safe_load(weight):
                 "ultralytics.yolo.utils": "ultralytics.utils",
                 "ultralytics.yolo.v8": "ultralytics.models.yolo",
                 "ultralytics.yolo.data": "ultralytics.data",
-            },
-            attributes={
-                "ultralytics.nn.modules.block.Silence": "torch.nn.Identity",  # YOLOv9e
-                "ultralytics.nn.tasks.YOLOv10DetectionModel": "ultralytics.nn.tasks.DetectionModel",  # YOLOv10
-            },
-        ):
+            }
+        ):  # for legacy 8.0 Classify and Pose models
             ckpt = torch.load(file, map_location="cpu")
 
     except ModuleNotFoundError as e:  # e.name is missing module name
@@ -924,9 +909,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             C2,
             C2f,
             RepNCSPELAN4,
-            ELAN1,
             ADown,
-            AConv,
             SPPELAN,
             C2fAttn,
             C3,
@@ -936,9 +919,6 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             DWConvTranspose2d,
             C3x,
             RepC3,
-            PSA,
-            SCDown,
-            C2fCIB,
         }:
             c1, c2 = ch[f], args[0]
             if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
@@ -950,7 +930,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                 )  # num heads
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C1, C2, C2f, C2fAttn, C3, C3TR, C3Ghost, C3x, RepC3, C2fCIB}:
+            if m in (BottleneckCSP, C1, C2, C2f, C2fAttn, C3, C3TR, C3Ghost, C3x, RepC3):
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is AIFI:
@@ -967,7 +947,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
-        elif m in {Detect, WorldDetect, Segment, Pose, OBB, ImagePoolingAttn, v10Detect}:
+        elif m in {Detect, WorldDetect, Segment, Pose, OBB, ImagePoolingAttn}:
             args.append([ch[x] for x in f])
             if m is Segment:
                 args[2] = make_divisible(min(args[2], max_channels) * width, 8)
@@ -1084,7 +1064,7 @@ def guess_model_task(model):
                 return "pose"
             elif isinstance(m, OBB):
                 return "obb"
-            elif isinstance(m, (Detect, WorldDetect, v10Detect)):
+            elif isinstance(m, (Detect, WorldDetect)):
                 return "detect"
 
     # Guess from model filename

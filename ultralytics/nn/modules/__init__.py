@@ -37,7 +37,7 @@ from .block import (
     BottleneckCSP,
     C2f,
     C2fAttn,
-    C2fCIB,
+    ImagePoolingAttn,
     C3Ghost,
     C3x,
     CBFuse,
@@ -52,7 +52,14 @@ from .block import (
     RepNCSPELAN4,
     RepVGGDW,
     ResNetLayer,
-    SCDown,
+    ContrastiveHead,
+    BNContrastiveHead,
+    RepNCSPELAN4,
+    ADown,
+    SPPELAN,
+    CBFuse,
+    CBLinear,
+    Silence,
 )
 from .conv import (
     CBAM,
@@ -69,7 +76,7 @@ from .conv import (
     RepConv,
     SpatialAttention,
 )
-from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect, v10Detect
+from .head import OBB, Classify, Detect, Pose, RTDETRDecoder, Segment, WorldDetect
 from .transformer import (
     AIFI,
     MLP,
@@ -133,7 +140,6 @@ __all__ = (
     "ResNetLayer",
     "OBB",
     "WorldDetect",
-    "v10Detect",
     "ImagePoolingAttn",
     "ContrastiveHead",
     "BNContrastiveHead",
@@ -142,12 +148,5 @@ __all__ = (
     "SPPELAN",
     "CBFuse",
     "CBLinear",
-    "AConv",
-    "ELAN1",
-    "RepVGGDW",
-    "CIB",
-    "C2fCIB",
-    "Attention",
-    "PSA",
-    "SCDown",
+    "Silence",
 )

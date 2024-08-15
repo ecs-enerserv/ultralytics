@@ -92,7 +92,7 @@ class DistanceCalculation:
     @staticmethod
     def calculate_centroid(box):
         """
-        Calculates the centroid of a bounding box.
+        Calculate the centroid of bounding box.
 
         Args:
             box (list): Bounding box coordinates [x1, y1, x2, y2].
@@ -104,7 +104,7 @@ class DistanceCalculation:
 
     def calculate_distance(self, centroid1, centroid2):
         """
-        Calculates the distance between two centroids.
+        Calculate distance between two centroids.
 
         Args:
             centroid1 (tuple): Coordinates of the first centroid (x, y).
@@ -114,13 +114,11 @@ class DistanceCalculation:
             (tuple): Distance in meters and millimeters.
         """
         pixel_distance = math.sqrt((centroid1[0] - centroid2[0]) ** 2 + (centroid1[1] - centroid2[1]) ** 2)
-        distance_m = pixel_distance / self.pixel_per_meter
-        distance_mm = distance_m * 1000
-        return distance_m, distance_mm
+        return pixel_distance / self.pixel_per_meter, (pixel_distance / self.pixel_per_meter) * 1000
 
     def start_process(self, im0, tracks):
         """
-        Processes the video frame and calculates the distance between two bounding boxes.
+        Calculate distance between two bounding boxes based on tracking data.
 
         Args:
             im0 (ndarray): The image frame.

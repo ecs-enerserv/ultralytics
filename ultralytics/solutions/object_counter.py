@@ -15,7 +15,49 @@ from shapely.geometry import LineString, Point, Polygon
 class ObjectCounter:
     """A class to manage the counting of objects in a real-time video stream based on their tracks."""
 
-    def __init__(
+    def __init__(self):
+        """Initializes the Counter with default values for various tracking and counting parameters."""
+
+        # Mouse events
+        self.is_drawing = False
+        self.selected_point = None
+
+        # Region & Line Information
+        self.reg_pts = [(20, 400), (1260, 400)]
+        self.line_dist_thresh = 15
+        self.counting_region = None
+        self.region_color = (255, 0, 255)
+        self.region_thickness = 5
+
+        # Image and annotation Information
+        self.im0 = None
+        self.tf = None
+        self.view_img = False
+        self.view_in_counts = True
+        self.view_out_counts = True
+
+        self.names = None  # Classes names
+        self.annotator = None  # Annotator
+        self.window_name = "Ultralytics YOLOv8 Object Counter"
+
+        # Object counting Information
+        self.in_counts = 0
+        self.out_counts = 0
+        self.counting_dict = {}
+        self.count_txt_thickness = 0
+        self.count_txt_color = (0, 0, 0)
+        self.count_color = (255, 255, 255)
+
+        # Tracks info
+        self.track_history = defaultdict(list)
+        self.track_thickness = 2
+        self.draw_tracks = False
+        self.track_color = (0, 255, 0)
+
+        # Check if environment support imshow
+        self.env_check = check_imshow(warn=True)
+
+    def set_args(
         self,
         names,
         reg_pts=None,
@@ -100,8 +142,9 @@ class ObjectCounter:
         if len(self.reg_pts) == 2:
             print("Line Counter Initiated.")
             self.counting_region = LineString(self.reg_pts)
-        elif len(self.reg_pts) >= 3:
-            print("Polygon Counter Initiated.")
+        elif len(reg_pts) >= 3:
+            print("Region Counter Initiated.")
+            self.reg_pts = reg_pts
             self.counting_region = Polygon(self.reg_pts)
         else:
             print("Invalid Region points provided, region_points must be 2 for lines or >= 3 for polygons.")
@@ -145,9 +188,6 @@ class ObjectCounter:
         # Annotator Init and region drawing
         self.annotator = Annotator(self.im0, self.tf, self.names)
 
-        # Draw region or line
-        self.annotator.draw_region(reg_pts=self.reg_pts, color=self.region_color, thickness=self.region_thickness)
-
         if tracks[0].boxes.id is not None:
             boxes = tracks[0].boxes.xyxy.cpu()
             clss = tracks[0].boxes.cls.cpu().tolist()
@@ -156,11 +196,7 @@ class ObjectCounter:
             # Extract tracks
             for box, track_id, cls in zip(boxes, track_ids, clss):
                 # Draw bounding box
-                self.annotator.box_label(box, label=f"{self.names[cls]}#{track_id}", color=colors(int(track_id), True))
-
-                # Store class info
-                if self.names[cls] not in self.class_wise_count:
-                    self.class_wise_count[self.names[cls]] = {"IN": 0, "OUT": 0}
+                self.annotator.box_label(box, label=f"{track_id}:{self.names[cls]}", color=colors(int(track_id), True))
 
                 # Draw Tracks
                 track_line = self.track_history[track_id]
@@ -171,26 +207,47 @@ class ObjectCounter:
                 # Draw track trails
                 if self.draw_tracks:
                     self.annotator.draw_centroid_and_tracks(
-                        track_line,
-                        color=self.track_color or colors(int(track_id), True),
-                        track_thickness=self.track_thickness,
+                        track_line, color=self.track_color, track_thickness=self.track_thickness
                     )
 
                 prev_position = self.track_history[track_id][-2] if len(self.track_history[track_id]) > 1 else None
+                centroid = Point((box[:2] + box[2:]) / 2)
 
-                # Count objects in any polygon
-                if len(self.reg_pts) >= 3:
-                    is_inside = self.counting_region.contains(Point(track_line[-1]))
+                # Count objects
+                if len(self.reg_pts) >= 3:  # any polygon
+                    is_inside = self.counting_region.contains(centroid)
+                    current_position = "in" if is_inside else "out"
 
-                    if prev_position is not None and is_inside and track_id not in self.count_ids:
-                        self.count_ids.append(track_id)
-
-                        if (box[0] - prev_position[0]) * (self.counting_region.centroid.x - prev_position[0]) > 0:
+                    if prev_position is not None:
+                        if self.counting_dict[track_id] != current_position and is_inside:
                             self.in_counts += 1
-                            self.class_wise_count[self.names[cls]]["IN"] += 1
-                        else:
+                            self.counting_dict[track_id] = "in"
+                        elif self.counting_dict[track_id] != current_position and not is_inside:
                             self.out_counts += 1
-                            self.class_wise_count[self.names[cls]]["OUT"] += 1
+                            self.counting_dict[track_id] = "out"
+                        else:
+                            self.counting_dict[track_id] = current_position
+
+                    else:
+                        self.counting_dict[track_id] = current_position
+
+                elif len(self.reg_pts) == 2:
+                    if prev_position is not None:
+                        is_inside = (box[0] - prev_position[0]) * (
+                            self.counting_region.centroid.x - prev_position[0]
+                        ) > 0
+                        current_position = "in" if is_inside else "out"
+
+                        if self.counting_dict[track_id] != current_position and is_inside:
+                            self.in_counts += 1
+                            self.counting_dict[track_id] = "in"
+                        elif self.counting_dict[track_id] != current_position and not is_inside:
+                            self.out_counts += 1
+                            self.counting_dict[track_id] = "out"
+                        else:
+                            self.counting_dict[track_id] = current_position
+                    else:
+                        self.counting_dict[track_id] = None
 
                 # Count objects using line
                 elif len(self.reg_pts) == 2:
@@ -225,6 +282,7 @@ class ObjectCounter:
     def display_frames(self):
         """Displays the current frame with annotations and regions in a window."""
         if self.env_check:
+            self.annotator.draw_region(reg_pts=self.reg_pts, color=self.region_color, thickness=self.region_thickness)
             cv2.namedWindow(self.window_name)
             if len(self.reg_pts) == 4:  # only add mouse event If user drawn region
                 cv2.setMouseCallback(self.window_name, self.mouse_event_for_region, {"region_points": self.reg_pts})

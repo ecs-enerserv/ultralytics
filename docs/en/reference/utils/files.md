@@ -42,3 +42,7 @@ keywords: Ultralytics, file utilities, Python, WorkingDirectory, increment_path,
 ## ::: ultralytics.utils.files.update_models
 
 <br><br>
+
+## ::: ultralytics.utils.files.update_models
+
+<br><br>

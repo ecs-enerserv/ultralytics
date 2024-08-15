@@ -19,15 +19,15 @@ class AIGym:
         pose_type="pullup",
     ):
         """
-        Initializes the AIGym class with the specified parameters.
+        Configures the AIGym line_thickness, save image and view image parameters.
 
         Args:
-            kpts_to_check (list): Indices of keypoints to check.
-            line_thickness (int, optional): Thickness of the lines drawn. Defaults to 2.
-            view_img (bool, optional): Flag to display the image. Defaults to False.
-            pose_up_angle (float, optional): Angle threshold for the 'up' pose. Defaults to 145.0.
-            pose_down_angle (float, optional): Angle threshold for the 'down' pose. Defaults to 90.0.
-            pose_type (str, optional): Type of pose to detect ('pullup', 'pushup', 'abworkout'). Defaults to "pullup".
+            kpts_to_check (list): 3 keypoints for counting
+            line_thickness (int): Line thickness for bounding boxes.
+            view_img (bool): display the im0
+            pose_up_angle (float): Angle to set pose position up
+            pose_down_angle (float): Angle to set pose position down
+            pose_type (str): "pushup", "pullup" or "abworkout"
         """
 
         # Image and line thickness
@@ -63,7 +63,8 @@ class AIGym:
 
         Args:
             im0 (ndarray): Current frame from the video stream.
-            results (list): Pose estimation data.
+            results (list): Pose estimation data
+            frame_count (int): store current frame count
         """
 
         self.im0 = im0
@@ -78,7 +79,7 @@ class AIGym:
             self.stage += ["-"] * new_human
 
         self.keypoints = results[0].keypoints.data
-        self.annotator = Annotator(im0, line_width=self.tf)
+        self.annotator = Annotator(im0, line_width=2)
 
         for ind, k in enumerate(reversed(self.keypoints)):
             # Estimate angle and draw specific points based on pose type

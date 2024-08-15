@@ -259,12 +259,6 @@ class BYTETracker:
         joint_stracks(tlista, tlistb): Combines two lists of stracks.
         sub_stracks(tlista, tlistb): Filters out the stracks present in the second list from the first list.
         remove_duplicate_stracks(stracksa, stracksb): Removes duplicate stracks based on IoU.
-
-    Examples:
-        Initialize BYTETracker and update with detection results
-        >>> tracker = BYTETracker(args, frame_rate=30)
-        >>> results = yolo_model.detect(image)
-        >>> tracked_objects = tracker.update(results)
     """
 
     def __init__(self, args, frame_rate=30):
@@ -413,7 +407,7 @@ class BYTETracker:
         return [STrack(xyxy, s, c) for (xyxy, s, c) in zip(dets, scores, cls)] if len(dets) else []  # detections
 
     def get_dists(self, tracks, detections):
-        """Calculates the distance between tracks and detections using IoU and optionally fuses scores."""
+        """Calculates the distance between tracks and detections using IoU and fuses scores."""
         dists = matching.iou_distance(tracks, detections)
         if self.args.fuse_score:
             dists = matching.fuse_score(dists, detections)
@@ -460,7 +454,7 @@ class BYTETracker:
 
     @staticmethod
     def remove_duplicate_stracks(stracksa, stracksb):
-        """Removes duplicate stracks from two lists based on Intersection over Union (IoU) distance."""
+        """Remove duplicate stracks with non-maximum IoU distance."""
         pdist = matching.iou_distance(stracksa, stracksb)
         pairs = np.where(pdist < 0.15)
         dupa, dupb = [], []

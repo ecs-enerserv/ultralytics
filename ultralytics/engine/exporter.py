@@ -50,7 +50,6 @@ TensorFlow.js:
     $ npm start
 """
 
-import gc
 import json
 import os
 import shutil
@@ -87,8 +86,8 @@ from ultralytics.utils import (
     get_default_args,
     yaml_save,
 )
-from ultralytics.utils.checks import check_imgsz, check_is_path_safe, check_requirements, check_version
-from ultralytics.utils.downloads import attempt_download_asset, get_github_assets, safe_download
+from ultralytics.utils.checks import PYTHON_VERSION, check_imgsz, check_is_path_safe, check_requirements, check_version
+from ultralytics.utils.downloads import attempt_download_asset, get_github_assets
 from ultralytics.utils.files import file_size, spaces_in_path
 from ultralytics.utils.ops import Profile
 from ultralytics.utils.torch_utils import TORCH_1_13, get_latest_opset, select_device, smart_inference_mode
@@ -209,12 +208,8 @@ class Exporter:
         if self.args.optimize:
             assert not ncnn, "optimize=True not compatible with format='ncnn', i.e. use optimize=False"
             assert self.device.type == "cpu", "optimize=True not compatible with cuda devices, i.e. use device='cpu'"
-        if edgetpu:
-            if not LINUX:
-                raise SystemError("Edge TPU export only supported on Linux. See https://coral.ai/docs/edgetpu/compiler")
-            elif self.args.batch != 1:  # see github.com/ultralytics/ultralytics/pull/13420
-                LOGGER.warning("WARNING ⚠️ Edge TPU export requires batch size 1, setting batch=1.")
-                self.args.batch = 1
+        if edgetpu and not LINUX:
+            raise SystemError("Edge TPU export only supported on Linux. See https://coral.ai/docs/edgetpu/compiler/")
         if isinstance(model, WorldModel):
             LOGGER.warning(
                 "WARNING ⚠️ YOLOWorld (original version) export is not supported to any format.\n"
@@ -222,12 +217,7 @@ class Exporter:
                 "(torchscript, onnx, openvino, engine, coreml) formats. "
                 "See https://docs.ultralytics.com/models/yolo-world for details."
             )
-        if self.args.int8 and not self.args.data:
-            self.args.data = DEFAULT_CFG.data or TASK2DATA[getattr(model, "task", "detect")]  # assign default data
-            LOGGER.warning(
-                "WARNING ⚠️ INT8 export requires a missing 'data' arg for calibration. "
-                f"Using default 'data={self.args.data}'."
-            )
+
         # Input
         im = torch.zeros(self.args.batch, 3, *self.imgsz).to(self.device)
         file = Path(
@@ -388,7 +378,9 @@ class Exporter:
         """YOLOv8 ONNX export."""
         requirements = ["onnx>=1.12.0"]
         if self.args.simplify:
-            requirements += ["onnxslim>=0.1.31", "onnxruntime" + ("-gpu" if torch.cuda.is_available() else "")]
+            requirements += ["onnxsim>=0.4.33", "onnxruntime-gpu" if torch.cuda.is_available() else "onnxruntime"]
+            if ARM64:
+                check_requirements("cmake")  # 'cmake' is needed to build onnxsim on aarch64
         check_requirements(requirements)
         import onnx  # noqa
 
@@ -448,13 +440,13 @@ class Exporter:
     @try_export
     def export_openvino(self, prefix=colorstr("OpenVINO:")):
         """YOLOv8 OpenVINO export."""
-        check_requirements(f'openvino{"<=2024.0.0" if ARM64 else ">=2024.0.0"}')  # fix OpenVINO issue on ARM64
+        check_requirements("openvino>=2024.0.0")  # requires openvino: https://pypi.org/project/openvino/
         import openvino as ov
 
         LOGGER.info(f"\n{prefix} starting export with openvino {ov.__version__}...")
         assert TORCH_1_13, f"OpenVINO export requires torch>=1.13.0 but torch=={torch.__version__} is installed"
         ov_model = ov.convert_model(
-            self.model,
+            self.model.cpu(),
             input=None if self.args.dynamic else [self.im.shape],
             example_input=self.im,
         )
@@ -476,6 +468,12 @@ class Exporter:
         if self.args.int8:
             fq = str(self.file).replace(self.file.suffix, f"_int8_openvino_model{os.sep}")
             fq_ov = str(Path(fq) / self.file.with_suffix(".xml").name)
+            if not self.args.data:
+                self.args.data = DEFAULT_CFG.data or "coco128.yaml"
+                LOGGER.warning(
+                    f"{prefix} WARNING ⚠️ INT8 export requires a missing 'data' arg for calibration. "
+                    f"Using default 'data={self.args.data}'."
+                )
             check_requirements("nncf>=2.8.0")
             import nncf
 
@@ -487,10 +485,19 @@ class Exporter:
                 return np.expand_dims(im, 0) if im.ndim == 3 else im
 
             # Generate calibration data for integer quantization
+            LOGGER.info(f"{prefix} collecting INT8 calibration images from 'data={self.args.data}'")
+            data = check_det_dataset(self.args.data)
+            dataset = YOLODataset(data["val"], data=data, task=self.model.task, imgsz=self.imgsz[0], augment=False)
+            n = len(dataset)
+            if n < 300:
+                LOGGER.warning(f"{prefix} WARNING ⚠️ >300 images recommended for INT8 calibration, found {n} images.")
+            quantization_dataset = nncf.Dataset(dataset, transform_fn)
+
             ignored_scope = None
             if isinstance(self.model.model[-1], Detect):
                 # Includes all Detect subclasses like Segment, Pose, OBB, WorldDetect
                 head_module_name = ".".join(list(self.model.named_modules())[-1][0].split(".")[:2])
+
                 ignored_scope = nncf.IgnoredScope(  # ignore operations
                     patterns=[
                         f".*{head_module_name}/.*/Add",
@@ -552,18 +559,18 @@ class Exporter:
                 f"or in {ROOT}. See PNNX repo for full installation instructions."
             )
             system = "macos" if MACOS else "windows" if WINDOWS else "linux-aarch64" if ARM64 else "linux"
-            try:
-                release, assets = get_github_assets(repo="pnnx/pnnx")
-                asset = [x for x in assets if f"{system}.zip" in x][0]
-                assert isinstance(asset, str), "Unable to retrieve PNNX repo assets"  # i.e. pnnx-20240410-macos.zip
-                LOGGER.info(f"{prefix} successfully found latest PNNX asset file {asset}")
-            except Exception as e:
-                release = "20240410"
-                asset = f"pnnx-{release}-{system}.zip"
-                LOGGER.warning(f"{prefix} WARNING ⚠️ PNNX GitHub assets not found: {e}, using default {asset}")
-            unzip_dir = safe_download(f"https://github.com/pnnx/pnnx/releases/download/{release}/{asset}", delete=True)
-            if check_is_path_safe(Path.cwd(), unzip_dir):  # avoid path traversal security vulnerability
-                shutil.move(src=unzip_dir / name, dst=pnnx)  # move binary to ROOT
+            _, assets = get_github_assets(repo="pnnx/pnnx", retry=True)
+            if assets:
+                url = [x for x in assets if f"{system}.zip" in x][0]
+            else:
+                url = f"https://github.com/pnnx/pnnx/releases/download/20240226/pnnx-20240226-{system}.zip"
+                LOGGER.warning(f"{prefix} WARNING ⚠️ PNNX GitHub assets not found, using default {url}")
+            asset = attempt_download_asset(url, repo="pnnx/pnnx", release="latest")
+            if check_is_path_safe(Path.cwd(), asset):  # avoid path traversal security vulnerability
+                unzip_dir = Path(asset).with_suffix("")
+                (unzip_dir / name).rename(pnnx)  # move binary to ROOT
+                shutil.rmtree(unzip_dir)  # delete unzip dir
+                Path(asset).unlink()  # delete zip
                 pnnx.chmod(0o777)  # set read, write, and execute permissions for everyone
                 shutil.rmtree(unzip_dir)  # delete unzip dir
 
@@ -818,19 +825,19 @@ class Exporter:
             import tensorflow as tf  # noqa
         except ImportError:
             suffix = "-macos" if MACOS else "-aarch64" if ARM64 else "" if cuda else "-cpu"
-            version = ">=2.0.0"
+            version = "" if ARM64 else "<=2.13.1"
             check_requirements(f"tensorflow{suffix}{version}")
             import tensorflow as tf  # noqa
+        if ARM64:
+            check_requirements("cmake")  # 'cmake' is needed to build onnxsim on aarch64
         check_requirements(
             (
-                "keras",  # required by 'onnx2tf' package
-                "tf_keras",  # required by 'onnx2tf' package
-                "sng4onnx>=1.0.1",  # required by 'onnx2tf' package
-                "onnx_graphsurgeon>=0.3.26",  # required by 'onnx2tf' package
                 "onnx>=1.12.0",
-                "onnx2tf>1.17.5,<=1.22.3",
-                "onnxslim>=0.1.31",
-                "tflite_support<=0.4.3" if IS_JETSON else "tflite_support",  # fix ImportError 'GLIBCXX_3.4.29'
+                "onnx2tf>=1.15.4,<=1.17.5",
+                "sng4onnx>=1.0.1",
+                "onnxsim>=0.4.33",
+                "onnx_graphsurgeon>=0.3.26",
+                "tflite_support",
                 "flatbuffers>=23.5.26,<100",  # update old 'flatbuffers' included inside tensorflow package
                 "onnxruntime-gpu" if cuda else "onnxruntime",
             ),
@@ -861,9 +868,9 @@ class Exporter:
         f_onnx, _ = self.export_onnx()
 
         # Export to TF
+        tmp_file = f / "tmp_tflite_int8_calibration_images.npy"  # int8 calibration images file
         np_data = None
         if self.args.int8:
-            tmp_file = f / "tmp_tflite_int8_calibration_images.npy"  # int8 calibration images file
             verbosity = "info"
             if self.args.data:
                 f.mkdir()
@@ -871,7 +878,7 @@ class Exporter:
                 images = torch.cat(images, 0).float()
                 # mean = images.view(-1, 3).mean(0)  # imagenet mean [123.675, 116.28, 103.53]
                 # std = images.view(-1, 3).std(0)  # imagenet std [58.395, 57.12, 57.375]
-                np.save(str(tmp_file), images.numpy().astype(np.float32))  # BHWC
+                np.save(str(tmp_file), images.numpy())  # BHWC
                 np_data = [["images", tmp_file, [[[[0, 0, 0]]]], [[[[255, 255, 255]]]]]]
         else:
             verbosity = "error"
@@ -885,8 +892,6 @@ class Exporter:
             output_integer_quantized_tflite=self.args.int8,
             quant_type="per-tensor",  # "per-tensor" (faster) or "per-channel" (slower but more accurate)
             custom_input_op_name_np_data_path=np_data,
-            disable_group_convolution=True,  # for end-to-end model compatibility
-            enable_batchmatmul_unfold=True,  # for end-to-end model compatibility
         )
         yaml_save(f / "metadata.yaml", self.metadata)  # add metadata.yaml
 

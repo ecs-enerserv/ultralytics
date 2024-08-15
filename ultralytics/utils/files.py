@@ -189,15 +189,17 @@ def update_models(model_names=("yolov8n.pt",), source_dir=Path("."), update_name
     Updates and re-saves specified YOLO models in an 'updated_models' subdirectory.
 
     Args:
-        model_names (Tuple[str, ...]): Model filenames to update.
-        source_dir (Path): Directory containing models and target subdirectory.
-        update_names (bool): Update model names from a data YAML.
+        model_names (tuple, optional): Model filenames to update, defaults to ("yolov8n.pt").
+        source_dir (Path, optional): Directory containing models and target subdirectory, defaults to current directory.
+        update_names (bool, optional): Update model names from a data YAML.
 
-    Examples:
-        Update specified YOLO models and save them in 'updated_models' subdirectory:
-        >>> from ultralytics.utils.files import update_models
-        >>> model_names = ("yolov8n.pt", "yolov8s.pt")
-        >>> update_models(model_names, source_dir=Path("/models"), update_names=True)
+    Example:
+        ```python
+        from ultralytics.utils.files import update_models
+
+        model_names = (f"rtdetr-{size}.pt" for size in "lx")
+        update_models(model_names)
+        ```
     """
     from ultralytics import YOLO
     from ultralytics.nn.autobackend import default_class_names

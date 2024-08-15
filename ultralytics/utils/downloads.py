@@ -22,8 +22,7 @@ GITHUB_ASSETS_NAMES = (
     + [f"yolov3{k}u.pt" for k in ("", "-spp", "-tiny")]
     + [f"yolov8{k}-world.pt" for k in "smlx"]
     + [f"yolov8{k}-worldv2.pt" for k in "smlx"]
-    + [f"yolov9{k}.pt" for k in "tsmce"]
-    + [f"yolov10{k}.pt" for k in "nsmblx"]
+    + [f"yolov9{k}.pt" for k in "ce"]
     + [f"yolo_nas_{k}.pt" for k in "sml"]
     + [f"sam_{k}.pt" for k in "bl"]
     + [f"FastSAM-{k}.pt" for k in "sx"]
@@ -194,14 +193,14 @@ def unzip_file(file, path=None, exclude=(".DS_Store", "__MACOSX"), exist_ok=Fals
     return path  # return unzip dir
 
 
-def check_disk_space(url="https://ultralytics.com/assets/coco8.zip", path=Path.cwd(), sf=1.5, hard=True):
+def check_disk_space(url="https://ultralytics.com/assets/coco128.zip", path=Path.cwd(), sf=1.5, hard=True):
     """
     Check if there is sufficient disk space to download and store a file.
 
     Args:
-        url (str, optional): The URL to the file. Defaults to 'https://ultralytics.com/assets/coco8.zip'.
+        url (str, optional): The URL to the file. Defaults to 'https://ultralytics.com/assets/coco128.zip'.
         path (str | Path, optional): The path or drive to check the available free space on.
-        sf (float, optional): Safety factor, the multiplier for the required free space. Defaults to 1.5.
+        sf (float, optional): Safety factor, the multiplier for the required free space. Defaults to 2.0.
         hard (bool, optional): Whether to throw an error or not on insufficient disk space. Defaults to True.
 
     Returns:
@@ -417,7 +416,7 @@ def attempt_download_asset(file, repo="ultralytics/assets", release="v8.2.0", **
     Args:
         file (str | Path): The filename or file path to be downloaded.
         repo (str, optional): The GitHub repository in the format 'owner/repo'. Defaults to 'ultralytics/assets'.
-        release (str, optional): The specific release version to be downloaded. Defaults to 'v8.2.0'.
+        release (str, optional): The specific release version to be downloaded. Defaults to 'v8.1.0'.
         **kwargs (any): Additional keyword arguments for the download process.
 
     Returns:

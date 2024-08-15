@@ -66,7 +66,7 @@ class ClassificationTrainer(BaseTrainer):
             )
             ckpt = None
         else:
-            ckpt = super().setup_model()
+            raise FileNotFoundError(f"ERROR: model={model} not found locally or online. Please check model name.")
         ClassificationModel.reshape_outputs(self.model, self.data["nc"])
         return ckpt
 

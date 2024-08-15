@@ -74,10 +74,24 @@ class DFLoss(nn.Module):
         """
         Return sum of left and right DFL losses.
 
+        # DFL loss
+        if self.use_dfl:
+            target_ltrb = bbox2dist(anchor_points, target_bboxes, self.reg_max)
+            loss_dfl = self._df_loss(pred_dist[fg_mask].view(-1, self.reg_max + 1), target_ltrb[fg_mask]) * weight
+            loss_dfl = loss_dfl.sum() / target_scores_sum
+        else:
+            loss_dfl = torch.tensor(0.0).to(pred_dist.device)
+
+        return loss_iou, loss_dfl
+
+    @staticmethod
+    def _df_loss(pred_dist, target):
+        """
+        Return sum of left and right DFL losses.
+
         Distribution Focal Loss (DFL) proposed in Generalized Focal Loss
         https://ieeexplore.ieee.org/document/9792391
         """
-        target = target.clamp_(0, self.reg_max - 1 - 0.01)
         tl = target.long()  # target left
         tr = tl + 1  # target right
         wl = tr - target  # weight left
@@ -608,10 +622,12 @@ class v8ClassificationLoss:
 
 
 class v8OBBLoss(v8DetectionLoss):
-    """Calculates losses for object detection, classification, and box distribution in rotated YOLO models."""
-
     def __init__(self, model):
-        """Initializes v8OBBLoss with model, assigner, and rotated bbox loss; note model must be de-paralleled."""
+        """
+        Initializes v8OBBLoss with model, assigner, and rotated bbox loss.
+
+        Note model must be de-paralleled.
+        """
         super().__init__(model)
         self.assigner = RotatedTaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
         self.bbox_loss = RotatedBboxLoss(self.reg_max).to(self.device)

@@ -130,8 +130,22 @@ class BaseTrainer:
 
         # Model and Dataset
         self.model = check_model_file_from_stem(self.args.model)  # add suffix, i.e. yolov8n -> yolov8n.pt
-        with torch_distributed_zero_first(LOCAL_RANK):  # avoid auto-downloading dataset multiple times
-            self.trainset, self.testset = self.get_dataset()
+        try:
+            if self.args.task == "classify":
+                self.data = check_cls_dataset(self.args.data)
+            elif self.args.data.split(".")[-1] in ("yaml", "yml") or self.args.task in (
+                "detect",
+                "segment",
+                "pose",
+                "obb",
+            ):
+                self.data = check_det_dataset(self.args.data)
+                if "yaml_file" in self.data:
+                    self.args.data = self.data["yaml_file"]  # for validating 'yolo train data=url.zip' usage
+        except Exception as e:
+            raise RuntimeError(emojis(f"Dataset '{clean_url(self.args.data)}' error ❌ {e}")) from e
+
+        self.trainset, self.testset = self.get_dataset(self.data)
         self.ema = None
 
         # Optimization utils init
@@ -288,8 +302,8 @@ class BaseTrainer:
 
         # Dataloaders
         batch_size = self.batch_size // max(world_size, 1)
-        self.train_loader = self.get_dataloader(self.trainset, batch_size=batch_size, rank=LOCAL_RANK, mode="train")
-        if RANK in {-1, 0}:
+        self.train_loader = self.get_dataloader(self.trainset, batch_size=batch_size, rank=RANK, mode="train")
+        if RANK in (-1, 0):
             # Note: When training DOTA dataset, double batch size could get OOM on images with >2000 objects.
             self.test_loader = self.get_dataloader(
                 self.testset, batch_size=batch_size if self.args.task == "obb" else batch_size * 2, rank=-1, mode="val"
@@ -343,7 +357,6 @@ class BaseTrainer:
             base_idx = (self.epochs - self.args.close_mosaic) * nb
             self.plot_idx.extend([base_idx, base_idx + 1, base_idx + 2])
         epoch = self.start_epoch
-        self.optimizer.zero_grad()  # zero any resumed gradients to ensure stability on train start
         while True:
             self.epoch = epoch
             self.run_callbacks("on_train_epoch_start")
@@ -482,7 +495,23 @@ class BaseTrainer:
         """Save model training checkpoints with additional metadata."""
         import io
 
-        import pandas as pd  # scope for faster 'import ultralytics'
+        metrics = {**self.metrics, **{"fitness": self.fitness}}
+        results = {k.strip(): v for k, v in pd.read_csv(self.csv).to_dict(orient="list").items()}
+        ckpt = {
+            "epoch": self.epoch,
+            "best_fitness": self.best_fitness,
+            "model": deepcopy(de_parallel(self.model)).half(),
+            "ema": deepcopy(self.ema.ema).half(),
+            "updates": self.ema.updates,
+            "optimizer": self.optimizer.state_dict(),
+            "train_args": vars(self.args),  # save as dict
+            "train_metrics": metrics,
+            "train_results": results,
+            "date": datetime.now().isoformat(),
+            "version": __version__,
+            "license": "AGPL-3.0 (https://ultralytics.com/license)",
+            "docs": "https://docs.ultralytics.com",
+        }
 
         # Serialize ckpt to a byte buffer once (faster than repeated torch.save() calls)
         buffer = io.BytesIO()

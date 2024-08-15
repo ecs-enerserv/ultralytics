@@ -478,22 +478,6 @@ class Annotator:
         """Save the annotated image to 'filename'."""
         cv2.imwrite(filename, np.asarray(self.im))
 
-    def get_bbox_dimension(self, bbox=None):
-        """
-        Calculate the area of a bounding box.
-
-        Args:
-            bbox (tuple): Bounding box coordinates in the format (x_min, y_min, x_max, y_max).
-
-        Returns:
-            angle (degree): Degree value of angle between three points
-        """
-
-        x_min, y_min, x_max, y_max = bbox
-        width = x_max - x_min
-        height = y_max - y_min
-        return width, height, width * height
-
     def draw_region(self, reg_pts=None, color=(0, 255, 0), thickness=5):
         """
         Draw region line.
@@ -522,7 +506,7 @@ class Annotator:
 
     def queue_counts_display(self, label, points=None, region_color=(255, 255, 255), txt_color=(0, 0, 0)):
         """
-        Displays queue counts on an image centered at the points with customizable font size and colors.
+        Plot counts for object counter.
 
         Args:
             label (str): queue counts label
@@ -647,9 +631,6 @@ class Annotator:
             shape (tuple): imgsz for model inference
             radius (int): Keypoint radius value
         """
-
-        if indices is None:
-            indices = [2, 5, 7]
         for i, k in enumerate(keypoints):
             if i in indices:
                 x_coord, y_coord = k[0], k[1]
@@ -786,16 +767,44 @@ class Annotator:
             cv2.LINE_AA,
         )
 
-        (text_width_mm, text_height_mm), _ = cv2.getTextSize(f"Distance MM: {distance_mm:.2f}mm", 0, self.sf, self.tf)
-        cv2.rectangle(self.im, (15, 75), (15 + text_width_mm + 10, 75 + text_height_mm + 20), line_color, -1)
+    def plot_distance_and_line(self, distance_m, distance_mm, centroids, line_color, centroid_color):
+        """
+        Plot the distance and line on frame.
+
+        Args:
+            distance_m (float): Distance between two bbox centroids in meters.
+            distance_mm (float): Distance between two bbox centroids in millimeters.
+            centroids (list): Bounding box centroids data.
+            line_color (RGB): Distance line color.
+            centroid_color (RGB): Bounding box centroid color.
+        """
+        (text_width_m, text_height_m), _ = cv2.getTextSize(
+            f"Distance M: {distance_m:.2f}m", cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
+        )
+        cv2.rectangle(self.im, (15, 25), (15 + text_width_m + 10, 25 + text_height_m + 20), (255, 255, 255), -1)
+        cv2.putText(
+            self.im,
+            f"Distance M: {distance_m:.2f}m",
+            (20, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0, 0, 0),
+            2,
+            cv2.LINE_AA,
+        )
+
+        (text_width_mm, text_height_mm), _ = cv2.getTextSize(
+            f"Distance MM: {distance_mm:.2f}mm", cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
+        )
+        cv2.rectangle(self.im, (15, 75), (15 + text_width_mm + 10, 75 + text_height_mm + 20), (255, 255, 255), -1)
         cv2.putText(
             self.im,
             f"Distance MM: {distance_mm:.2f}mm",
             (20, 100),
-            0,
-            self.sf,
-            centroid_color,
-            self.tf,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0, 0, 0),
+            2,
             cv2.LINE_AA,
         )
 
@@ -803,7 +812,7 @@ class Annotator:
         cv2.circle(self.im, centroids[0], 6, centroid_color, -1)
         cv2.circle(self.im, centroids[1], 6, centroid_color, -1)
 
-    def visioneye(self, box, center_point, color=(235, 219, 11), pin_color=(255, 0, 255)):
+    def visioneye(self, box, center_point, color=(235, 219, 11), pin_color=(255, 0, 255), thickness=2, pins_radius=10):
         """
         Function for pinpoint human-vision eye mapping and plotting.
 
@@ -926,49 +935,22 @@ def save_one_box(xyxy, im, file=Path("im.jpg"), gain=1.02, pad=10, square=False,
 
 @threaded
 def plot_images(
-    images: Union[torch.Tensor, np.ndarray],
-    batch_idx: Union[torch.Tensor, np.ndarray],
-    cls: Union[torch.Tensor, np.ndarray],
-    bboxes: Union[torch.Tensor, np.ndarray] = np.zeros(0, dtype=np.float32),
-    confs: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    masks: Union[torch.Tensor, np.ndarray] = np.zeros(0, dtype=np.uint8),
-    kpts: Union[torch.Tensor, np.ndarray] = np.zeros((0, 51), dtype=np.float32),
-    paths: Optional[List[str]] = None,
-    fname: str = "images.jpg",
-    names: Optional[Dict[int, str]] = None,
-    on_plot: Optional[Callable] = None,
-    max_size: int = 1920,
-    max_subplots: int = 16,
-    save: bool = True,
-    conf_thres: float = 0.25,
-) -> Optional[np.ndarray]:
-    """
-    Plot image grid with labels, bounding boxes, masks, and keypoints.
-
-    Args:
-        images: Batch of images to plot. Shape: (batch_size, channels, height, width).
-        batch_idx: Batch indices for each detection. Shape: (num_detections,).
-        cls: Class labels for each detection. Shape: (num_detections,).
-        bboxes: Bounding boxes for each detection. Shape: (num_detections, 4) or (num_detections, 5) for rotated boxes.
-        confs: Confidence scores for each detection. Shape: (num_detections,).
-        masks: Instance segmentation masks. Shape: (num_detections, height, width) or (1, height, width).
-        kpts: Keypoints for each detection. Shape: (num_detections, 51).
-        paths: List of file paths for each image in the batch.
-        fname: Output filename for the plotted image grid.
-        names: Dictionary mapping class indices to class names.
-        on_plot: Optional callback function to be called after saving the plot.
-        max_size: Maximum size of the output image grid.
-        max_subplots: Maximum number of subplots in the image grid.
-        save: Whether to save the plotted image grid to a file.
-        conf_thres: Confidence threshold for displaying detections.
-
-    Returns:
-        np.ndarray: Plotted image grid as a numpy array if save is False, None otherwise.
-
-    Note:
-        This function supports both tensor and numpy array inputs. It will automatically
-        convert tensor inputs to numpy arrays for processing.
-    """
+    images,
+    batch_idx,
+    cls,
+    bboxes=np.zeros(0, dtype=np.float32),
+    confs=None,
+    masks=np.zeros(0, dtype=np.uint8),
+    kpts=np.zeros((0, 51), dtype=np.float32),
+    paths=None,
+    fname="images.jpg",
+    names=None,
+    on_plot=None,
+    max_subplots=16,
+    save=True,
+    conf_thres=0.25,
+):
+    """Plot image grid with labels."""
     if isinstance(images, torch.Tensor):
         images = images.cpu().float().numpy()
     if isinstance(cls, torch.Tensor):
@@ -1054,7 +1036,7 @@ def plot_images(
                 kpts_[..., 1] += y
                 for j in range(len(kpts_)):
                     if labels or conf[j] > conf_thres:
-                        annotator.kpts(kpts_[j], conf_thres=conf_thres)
+                        annotator.kpts(kpts_[j])
 
             # Plot masks
             if len(masks):
@@ -1278,19 +1260,18 @@ def feature_visualization(x, module_type, stage, n=32, save_dir=Path("runs/detec
     for m in {"Detect", "Segment", "Pose", "Classify", "OBB", "RTDETRDecoder"}:  # all model heads
         if m in module_type:
             return
-    if isinstance(x, torch.Tensor):
-        _, channels, height, width = x.shape  # batch, channels, height, width
-        if height > 1 and width > 1:
-            f = save_dir / f"stage{stage}_{module_type.split('.')[-1]}_features.png"  # filename
+    _, channels, height, width = x.shape  # batch, channels, height, width
+    if height > 1 and width > 1:
+        f = save_dir / f"stage{stage}_{module_type.split('.')[-1]}_features.png"  # filename
 
-            blocks = torch.chunk(x[0].cpu(), channels, dim=0)  # select batch index 0, block by channels
-            n = min(n, channels)  # number of plots
-            _, ax = plt.subplots(math.ceil(n / 8), 8, tight_layout=True)  # 8 rows x n/8 cols
-            ax = ax.ravel()
-            plt.subplots_adjust(wspace=0.05, hspace=0.05)
-            for i in range(n):
-                ax[i].imshow(blocks[i].squeeze())  # cmap='gray'
-                ax[i].axis("off")
+        blocks = torch.chunk(x[0].cpu(), channels, dim=0)  # select batch index 0, block by channels
+        n = min(n, channels)  # number of plots
+        _, ax = plt.subplots(math.ceil(n / 8), 8, tight_layout=True)  # 8 rows x n/8 cols
+        ax = ax.ravel()
+        plt.subplots_adjust(wspace=0.05, hspace=0.05)
+        for i in range(n):
+            ax[i].imshow(blocks[i].squeeze())  # cmap='gray'
+            ax[i].axis("off")
 
             LOGGER.info(f"Saving {f}... ({n}/{channels})")
             plt.savefig(f, dpi=300, bbox_inches="tight")
