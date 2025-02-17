@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import numpy as np
 import scipy
@@ -13,7 +13,7 @@ try:
 except (ImportError, AssertionError, AttributeError):
     from ultralytics.utils.checks import check_requirements
 
-    check_requirements("lapx>=0.5.2")  # update to lap package from https://github.com/rathaROG/lapx
+    check_requirements("lap>=0.5.12")  # https://github.com/gatagat/lap
     import lap
 
 
@@ -27,17 +27,15 @@ def linear_assignment(cost_matrix: np.ndarray, thresh: float, use_lap: bool = Tr
         use_lap (bool): Use lap.lapjv for the assignment. If False, scipy.optimize.linear_sum_assignment is used.
 
     Returns:
-        (tuple): A tuple containing:
-            - matched_indices (np.ndarray): Array of matched indices of shape (K, 2), where K is the number of matches.
-            - unmatched_a (np.ndarray): Array of unmatched indices from the first set, with shape (L,).
-            - unmatched_b (np.ndarray): Array of unmatched indices from the second set, with shape (M,).
+        matched_indices (np.ndarray): Array of matched indices of shape (K, 2), where K is the number of matches.
+        unmatched_a (np.ndarray): Array of unmatched indices from the first set, with shape (L,).
+        unmatched_b (np.ndarray): Array of unmatched indices from the second set, with shape (M,).
 
     Examples:
         >>> cost_matrix = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
         >>> thresh = 5.0
         >>> matched_indices, unmatched_a, unmatched_b = linear_assignment(cost_matrix, thresh, use_lap=True)
     """
-
     if cost_matrix.size == 0:
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
 
@@ -57,8 +55,8 @@ def linear_assignment(cost_matrix: np.ndarray, thresh: float, use_lap: bool = Tr
             unmatched_a = list(np.arange(cost_matrix.shape[0]))
             unmatched_b = list(np.arange(cost_matrix.shape[1]))
         else:
-            unmatched_a = list(set(np.arange(cost_matrix.shape[0])) - set(matches[:, 0]))
-            unmatched_b = list(set(np.arange(cost_matrix.shape[1])) - set(matches[:, 1]))
+            unmatched_a = list(frozenset(np.arange(cost_matrix.shape[0])) - frozenset(matches[:, 0]))
+            unmatched_b = list(frozenset(np.arange(cost_matrix.shape[1])) - frozenset(matches[:, 1]))
 
     return matches, unmatched_a, unmatched_b
 
@@ -80,7 +78,6 @@ def iou_distance(atracks: list, btracks: list) -> np.ndarray:
         >>> btracks = [np.array([5, 5, 15, 15]), np.array([25, 25, 35, 35])]
         >>> cost_matrix = iou_distance(atracks, btracks)
     """
-
     if atracks and isinstance(atracks[0], np.ndarray) or btracks and isinstance(btracks[0], np.ndarray):
         atlbrs = atracks
         btlbrs = btracks
@@ -121,9 +118,8 @@ def embedding_distance(tracks: list, detections: list, metric: str = "cosine") -
         Compute the embedding distance between tracks and detections using cosine metric
         >>> tracks = [STrack(...), STrack(...)]  # List of track objects with embedding features
         >>> detections = [BaseTrack(...), BaseTrack(...)]  # List of detection objects with embedding features
-        >>> cost_matrix = embedding_distance(tracks, detections, metric='cosine')
+        >>> cost_matrix = embedding_distance(tracks, detections, metric="cosine")
     """
-
     cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float32)
     if cost_matrix.size == 0:
         return cost_matrix
@@ -152,7 +148,6 @@ def fuse_score(cost_matrix: np.ndarray, detections: list) -> np.ndarray:
         >>> detections = [BaseTrack(score=np.random.rand()) for _ in range(10)]
         >>> fused_matrix = fuse_score(cost_matrix, detections)
     """
-
     if cost_matrix.size == 0:
         return cost_matrix
     iou_sim = 1 - cost_matrix

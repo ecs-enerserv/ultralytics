@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from typing import List, Optional, Tuple, Type
 
@@ -151,7 +151,12 @@ class ImageEncoderViT(nn.Module):
         """Processes input through patch embedding, positional embedding, transformer blocks, and neck module."""
         x = self.patch_embed(x)
         if self.pos_embed is not None:
-            x = x + self.pos_embed
+            pos_embed = (
+                F.interpolate(self.pos_embed.permute(0, 3, 1, 2), scale_factor=self.img_size / 1024).permute(0, 2, 3, 1)
+                if self.img_size != 1024
+                else self.pos_embed
+            )
+            x = x + pos_embed
         for blk in self.blocks:
             x = blk(x)
         return self.neck(x.permute(0, 3, 1, 2))
@@ -474,9 +479,9 @@ class ImageEncoder(nn.Module):
         self.trunk = trunk
         self.neck = neck
         self.scalp = scalp
-        assert (
-            self.trunk.channel_list == self.neck.backbone_channel_list
-        ), f"Channel dims of trunk {self.trunk.channel_list} and neck {self.neck.backbone_channel_list} do not match."
+        assert self.trunk.channel_list == self.neck.backbone_channel_list, (
+            f"Channel dims of trunk {self.trunk.channel_list} and neck {self.neck.backbone_channel_list} do not match."
+        )
 
     def forward(self, sample: torch.Tensor):
         """Encodes input through patch embedding, positional embedding, transformer blocks, and neck module."""
@@ -486,12 +491,11 @@ class ImageEncoder(nn.Module):
             features, pos = features[: -self.scalp], pos[: -self.scalp]
 
         src = features[-1]
-        output = {
+        return {
             "vision_features": src,
             "vision_pos_enc": pos,
             "backbone_fpn": features,
         }
-        return output
 
 
 class FpnNeck(nn.Module):
@@ -572,7 +576,7 @@ class FpnNeck(nn.Module):
 
             self.convs.append(current)
         self.fpn_interp_model = fpn_interp_model
-        assert fuse_type in ["sum", "avg"]
+        assert fuse_type in {"sum", "avg"}
         self.fuse_type = fuse_type
 
         # levels to have top-down features in its outputs

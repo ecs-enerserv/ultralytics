@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import itertools
 from glob import glob
@@ -8,23 +8,31 @@ from pathlib import Path
 import cv2
 import numpy as np
 from PIL import Image
-from tqdm import tqdm
 
 from ultralytics.data.utils import exif_size, img2label_paths
+from ultralytics.utils import TQDM
 from ultralytics.utils.checks import check_requirements
-
-check_requirements("shapely")
-from shapely.geometry import Polygon
 
 
 def bbox_iof(polygon1, bbox2, eps=1e-6):
     """
-    Calculate iofs between bbox1 and bbox2.
+    Calculate Intersection over Foreground (IoF) between polygons and bounding boxes.
 
     Args:
-        polygon1 (np.ndarray): Polygon coordinates, (n, 8).
-        bbox2 (np.ndarray): Bounding boxes, (n ,4).
+        polygon1 (np.ndarray): Polygon coordinates, shape (n, 8).
+        bbox2 (np.ndarray): Bounding boxes, shape (n, 4).
+        eps (float, optional): Small value to prevent division by zero. Defaults to 1e-6.
+
+    Returns:
+        (np.ndarray): IoF scores, shape (n, 1) or (n, m) if bbox2 is (m, 4).
+
+    Note:
+        Polygon format: [x1, y1, x2, y2, x3, y3, x4, y4].
+        Bounding box format: [x_min, y_min, x_max, y_max].
     """
+    check_requirements("shapely")
+    from shapely.geometry import Polygon
+
     polygon1 = polygon1.reshape(-1, 4, 2)
     lt_point = np.min(polygon1, axis=-2)  # left-top
     rb_point = np.max(polygon1, axis=-2)  # right-bottom
@@ -59,7 +67,7 @@ def load_yolo_dota(data_root, split="train"):
 
     Args:
         data_root (str): Data root.
-        split (str): The split data set, could be train or val.
+        split (str): The split data set, could be `train` or `val`.
 
     Notes:
         The directory structure assumed for the DOTA dataset:
@@ -185,7 +193,7 @@ def crop_and_save(anno, windows, window_objs, im_dir, lb_dir, allow_background_i
 
             with open(Path(lb_dir) / f"{new_name}.txt", "w") as f:
                 for lb in label:
-                    formatted_coords = ["{:.6g}".format(coord) for coord in lb[1:]]
+                    formatted_coords = [f"{coord:.6g}" for coord in lb[1:]]
                     f.write(f"{int(lb[0])} {' '.join(formatted_coords)}\n")
 
 
@@ -213,7 +221,7 @@ def split_images_and_labels(data_root, save_dir, split="train", crop_sizes=(1024
     lb_dir.mkdir(parents=True, exist_ok=True)
 
     annos = load_yolo_dota(data_root, split=split)
-    for anno in tqdm(annos, total=len(annos), desc=split):
+    for anno in TQDM(annos, total=len(annos), desc=split):
         windows = get_windows(anno["ori_size"], crop_sizes, gaps)
         window_objs = get_window_obj(anno, windows)
         crop_and_save(anno, windows, window_objs, str(im_dir), str(lb_dir))
@@ -273,7 +281,7 @@ def split_test(data_root, save_dir, crop_size=1024, gap=200, rates=(1.0,)):
     im_dir = Path(data_root) / "images" / "test"
     assert im_dir.exists(), f"Can't find {im_dir}, please check your data root."
     im_files = glob(str(im_dir / "*"))
-    for im_file in tqdm(im_files, total=len(im_files), desc="test"):
+    for im_file in TQDM(im_files, total=len(im_files), desc="test"):
         w, h = exif_size(Image.open(im_file))
         windows = get_windows((h, w), crop_sizes=crop_sizes, gaps=gaps)
         im = cv2.imread(im_file)

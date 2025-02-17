@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from typing import Tuple
 
@@ -22,7 +22,7 @@ def select_closest_cond_frames(frame_idx, cond_frame_outputs, max_cond_frame_num
 
     Examples:
         >>> frame_idx = 5
-        >>> cond_frame_outputs = {1: 'a', 3: 'b', 7: 'c', 9: 'd'}
+        >>> cond_frame_outputs = {1: "a", 3: "b", 7: "c", 9: "d"}
         >>> max_cond_frame_num = 2
         >>> selected, unselected = select_closest_cond_frames(frame_idx, cond_frame_outputs, max_cond_frame_num)
         >>> print(selected)

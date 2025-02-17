@@ -5,7 +5,7 @@ keywords: Ultralytics, YOLO, Comet, callbacks, logging, machine learning, monito
 
 # Reference for `ultralytics/utils/callbacks/comet.py`
 
-!!! Note
+!!! note
 
     This file is available at [https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/callbacks/comet.py](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/callbacks/comet.py). If you spot a problem please help fix it by [contributing](https://docs.ultralytics.com/help/contributing/) a [Pull Request](https://github.com/ultralytics/ultralytics/edit/main/ultralytics/utils/callbacks/comet.py) 🛠️. Thank you 🙏!
 
@@ -39,11 +39,7 @@ keywords: Ultralytics, YOLO, Comet, callbacks, logging, machine learning, monito
 
 <br><br><hr><br>
 
-## ::: ultralytics.utils.callbacks.comet._get_experiment_type
-
-<br><br><hr><br>
-
-## ::: ultralytics.utils.callbacks.comet._create_experiment
+## ::: ultralytics.utils.callbacks.comet._resume_or_create_experiment
 
 <br><br><hr><br>
 
