@@ -21,6 +21,7 @@ from ultralytics.utils.torch_utils import TORCHVISION_0_10, TORCHVISION_0_11, TO
 
 DEFAULT_MEAN = (0.0, 0.0, 0.0)
 DEFAULT_STD = (1.0, 1.0, 1.0)
+DEFAULT_CROP_FRACTION = 1.0
 
 
 class BaseTransform:
@@ -1953,13 +1954,22 @@ class Albumentations:
 
             # Transforms
             T = [
-                A.Blur(p=0.01),
-                A.MedianBlur(p=0.01),
-                A.ToGray(p=0.01),
-                A.CLAHE(p=0.01),
-                A.RandomBrightnessContrast(p=0.0),
-                A.RandomGamma(p=0.0),
-                A.ImageCompression(quality_range=(75, 100), p=0.0),
+                A.ISONoise(p=0.02, intensity=(0.02, 0.1)),
+                A.ToGray(p=0.02),
+                A.CLAHE(p=0.02, clip_limit=3.0),
+                A.MotionBlur(p=0.02, blur_limit=3),
+                A.RandomToneCurve(p=0.02, scale=0.05),
+                A.Sharpen(p=0.02, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
+                A.Emboss(p=0.02, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
+                A.MultiplicativeNoise(p=0.02, multiplier=(0.95, 1.05)),
+                A.Rotate(p=0.02, limit=5),
+                A.ChromaticAberration(
+                    primary_distortion_limit=(0.01, 0.05),
+                    secondary_distortion_limit=(0.01, 0.07),
+                    mode="random",
+                    p=0.02,
+                ),
+                A.ImageCompression(quality_lower=75, p=0.0),
             ]
 
             # Compose transforms
@@ -2556,7 +2566,7 @@ def classify_transforms(
     mean=DEFAULT_MEAN,
     std=DEFAULT_STD,
     interpolation="BILINEAR",
-    crop_fraction=None,
+    crop_fraction: float = DEFAULT_CROP_FRACTION,
 ):
     """
     Create a composition of image transforms for classification tasks.
@@ -2583,12 +2593,12 @@ def classify_transforms(
     """
     import torchvision.transforms as T  # scope for faster 'import ultralytics'
 
-    scale_size = size if isinstance(size, (tuple, list)) and len(size) == 2 else (size, size)
-
-    if crop_fraction:
-        raise DeprecationWarning(
-            "'crop_fraction' arg of classify_transforms is deprecated, will be removed in a future version."
-        )
+    if isinstance(size, (tuple, list)):
+        assert len(size) == 2, f"'size' tuples must be length 2, not length {len(size)}"
+        scale_size = tuple(math.floor(x / crop_fraction) for x in size)
+    else:
+        scale_size = math.floor(size / crop_fraction)
+        scale_size = (scale_size, scale_size)
 
     # Aspect ratio is preserved, crops center within image, no borders are added, image is lost
     if scale_size[0] == scale_size[1]:
@@ -2597,7 +2607,13 @@ def classify_transforms(
     else:
         # Resize the shortest edge to matching target dim for non-square target
         tfl = [T.Resize(scale_size)]
-    tfl += [T.CenterCrop(size), T.ToTensor(), T.Normalize(mean=torch.tensor(mean), std=torch.tensor(std))]
+    tfl.extend(
+        [
+            T.CenterCrop(size),
+            T.ToTensor(),
+            T.Normalize(mean=torch.tensor(mean), std=torch.tensor(std)),
+        ]
+    )
     return T.Compose(tfl)
 
 
@@ -2693,8 +2709,8 @@ def classify_augmentations(
                 f'"augmix", "autoaugment" or None'
             )
 
-    if not disable_color_jitter:
-        secondary_tfl.append(T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h))
+    # if not disable_color_jitter:
+    secondary_tfl += [T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h)]
 
     final_tfl = [
         T.ToTensor(),
@@ -2702,7 +2718,39 @@ def classify_augmentations(
         T.RandomErasing(p=erasing, inplace=True),
     ]
 
-    return T.Compose(primary_tfl + secondary_tfl + final_tfl)
+    import albumentations as A
+
+    # Transforms
+    albumentations_transform = A.Compose(
+        [
+            A.ISONoise(p=0.1, intensity=(0.02, 0.1)),
+            A.ToGray(p=0.02),
+            A.CLAHE(p=0.1, clip_limit=0.5),
+            A.MotionBlur(p=0.1, blur_limit=3),
+            A.GaussianBlur(p=1, blur_limit=(3, 5)),
+            A.RandomToneCurve(p=0.1, scale=0.05),
+            A.Sharpen(p=0.1, alpha=(0.02, 0.1), lightness=(0.8, 1.0)),
+            A.Emboss(p=0.1, alpha=(0.02, 0.1), strength=(0.05, 0.2)),
+            A.MultiplicativeNoise(p=0.1, multiplier=(0.95, 1.05)),
+            A.Rotate(p=0.1, limit=10, border_mode=cv2.BORDER_CONSTANT),
+            A.ChromaticAberration(
+                primary_distortion_limit=(0.01, 0.05), secondary_distortion_limit=(0.01, 0.07), mode="random", p=0.1
+            ),
+            A.RGBShift(p=0.5, r_shift_limit=10, g_shift_limit=10, b_shift_limit=10),
+            A.RingingOvershoot(p=0.1, blur_limit=(5, 11)),
+            A.OpticalDistortion(p=0.1, distort_limit=0.1, shift_limit=0.1, border_mode=cv2.BORDER_CONSTANT),
+            A.GridDistortion(p=0.1, num_steps=5, distort_limit=0.3, border_mode=cv2.BORDER_CONSTANT),
+            A.Perspective(p=0.1, scale=(0.05, 0.1)),
+            A.PiecewiseAffine(p=0.1, scale=(0.01, 0.015)),
+            A.ImageCompression(quality_lower=75, p=0.0),
+        ]
+    )
+
+    rgb_check = lambda image: image.convert("RGB") if image.mode != "RGB" else image
+
+    album_tfl = [T.Lambda(lambda image: albumentations_transform(image=np.asarray(rgb_check(image)))["image"])]
+
+    return T.Compose(primary_tfl + secondary_tfl + album_tfl + final_tfl)
 
 
 # NOTE: keep this class for backward compatibility
